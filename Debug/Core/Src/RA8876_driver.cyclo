@@ -1,0 +1,12 @@
+../Core/Src/RA8876_driver.c:25:6:RA8876_write	1
+../Core/Src/RA8876_driver.c:32:9:RA8876_read	1
+../Core/Src/RA8876_driver.c:42:6:RA8876_SDRAM_init	1
+../Core/Src/RA8876_driver.c:78:6:RA8876_display_init	1
+../Core/Src/RA8876_driver.c:150:6:RA8876_PLL_init	1
+../Core/Src/RA8876_driver.c:173:6:RA8876_write_register	1
+../Core/Src/RA8876_driver.c:179:9:RA8876_read_status_register	1
+../Core/Src/RA8876_driver.c:188:9:RA8876_read_register	1
+../Core/Src/RA8876_driver.c:214:6:RA8876_display_on	1
+../Core/Src/RA8876_driver.c:217:6:RA8876_display_off	1
+../Core/Src/RA8876_driver.c:220:6:RA8876_color_bar_test_on	1
+../Core/Src/RA8876_driver.c:223:6:RA8876_color_bar_test_off	1
