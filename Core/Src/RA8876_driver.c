@@ -15,7 +15,7 @@ enum RA8876_dispMode _text_mode = GRAPHMODE;
 
 void RA8876_write(uint8_t write_command, uint8_t data) {
 	uint8_t buf[2] = { write_command, data };
-	HAL_SPI_Transmit(&hspi2, buf, sizeof(buf), 10);
+	HAL_SPI_Transmit(&hspi5, buf, sizeof(buf), 10);
 }
 
 void RA8876_SDRAM_init() {
@@ -199,9 +199,6 @@ void RA8876_display_init() {
 void RA8876_PLL_init() {
 	// copied for the most part from a library from gfcwfzkm
 	// but i needed to use different divisors
-
-
-
 	// core pll clock speed -> want
 	RA8876_write_register(RA8876_PPLLC1, 0x06);
 	RA8876_write_register(RA8876_PPLLC2,
@@ -220,7 +217,6 @@ void RA8876_PLL_init() {
 	RA8876_write_register(RA8876_CCR, 0x80);
 	HAL_Delay(5);
 
-
 }
 
 void RA8876_write_register(uint8_t register_address, uint8_t data) {
@@ -233,8 +229,8 @@ void RA8876_write_register(uint8_t register_address, uint8_t data) {
 uint8_t RA8876_read_status_register() {
 	uint8_t status = 0;
 	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(&hspi2, RA8876_STATUS_READ, 1, 10);
-	HAL_SPI_Receive(&hspi2, &status, 1, 10);
+	HAL_SPI_Transmit(&hspi5, RA8876_STATUS_READ, 1, 10);
+	HAL_SPI_Receive(&hspi5, &status, 1, 10);
 	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_SET);
 	return (status);
 }
@@ -245,14 +241,14 @@ uint8_t RA8876_read_register(uint8_t register_address) {
 
 	uint8_t buf[2] = { RA8876_COMMAND_WRITE, register_address };
 	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(&hspi2, buf, sizeof(buf), 10);
+	HAL_SPI_Transmit(&hspi5, buf, sizeof(buf), 10);
 	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_SET);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_RESET);
 	tx_buf[0] = 0xC0;
 	tx_buf[1] = 0x00;
 
-	HAL_SPI_TransmitReceive(&hspi2, tx_buf, rx_buf, 2, 10);
+	HAL_SPI_TransmitReceive(&hspi5, tx_buf, rx_buf, 2, 10);
 	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_SET);
 
 	return rx_buf[1];
@@ -261,9 +257,7 @@ uint8_t RA8876_read_register(uint8_t register_address) {
 void RA8876_set_mode(enum RA8876_dispMode text_mode) {
 	// Activate Text Mode
 	uint8_t reg_temp;
-
 	reg_temp = RA8876_read_register(RA8876_ICR);
-
 	if (text_mode) {
 		reg_temp |= RA8876_ICR_TEXT_MODE_EN;
 	} else {
@@ -368,28 +362,103 @@ void RA8876_set_background_color(uint32_t color) {
 	RA8876_write_register(RA8876_BGCG, green);
 	RA8876_write_register(RA8876_BGCB, blue);
 }
-void RA8876_set_text_coordinates(uint16_t x0, uint16_t y0) {
-	RA8876_write_register(RA8876_F_CURX0, x0);
-	RA8876_write_register(RA8876_F_CURX1, x0 >> 8);
-	RA8876_write_register(RA8876_F_CURY0, y0);
-	RA8876_write_register(RA8876_F_CURY1, y0 >> 8);
-}
-void RA8876_print(char *text) {
-	if (!(_text_mode))
-		RA8876_set_mode(TEXTMODE);
-
-	// here the problem may occur that we fill up the buffer faster than the
-	// display can handle it, so we need to check FIFO buffer
+void RA8876_write_data_16bit(uint16_t data) {
 	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(&hspi2, RA8876_MRWDP, 1, 10);
-
-	while (*text) {
-		HAL_SPI_Transmit(&hspi2, *text++, 1, 10);
-		while (RA8876_read_status_register() & RA8876_MEMW_FIFO_FULL)
-			;
-	}
+	RA8876_write(RA8876_DATA_WRITE, (uint8_t) (data >> 8));
+	RA8876_write(RA8876_DATA_WRITE, (uint8_t) (data & 0xFF));
 	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_SET);
 
-	while (!(RA8876_read_status_register() & RA8876_MEMW_FIFO_EMPTY))
-		;
+}
+void DrawCoolPattern(int x, int y) {
+	// need static, otherwise causes stack overflow
+	static uint16_t buffer[64 * 64];
+	for (int j = 0; j < (64 * 64); j++) {
+		buffer[j] = 0xf800;
+	}
+
+	RA8876_draw_image_BTE(x, y, 64, 64, buffer);
+}
+void RA8876_draw_image_BTE(int16_t x, int16_t y, uint16_t width,
+		uint16_t height,
+		const uint16_t *imageData) {
+
+	// 9D 9E 9F 9A Source1 memory start address 0-3
+//	RA8876_write_register(0x9D, 0x00);
+//	RA8876_write_register(0x9E, 0x00);
+//	RA8876_write_register(0x9F, 0x00);
+//	RA8876_write_register(0xA0, 0x00);
+
+	// A1 A2 set image Width
+	RA8876_write_register(0xA1, (uint8_t) (RA8876_WIDTH & 0xFF));
+	RA8876_write_register(0xA2, (uint8_t) (RA8876_WIDTH >> 8));
+
+	// A3 A4 is X pos A5 A6 is Y Source1
+	RA8876_write_register(0xA3, (uint8_t) (x & 0xFF));
+	RA8876_write_register(0xA4, (uint8_t) (x >> 8));
+	RA8876_write_register(0xA5, (uint8_t) (y & 0xFF));
+	RA8876_write_register(0xA6, (uint8_t) (y >> 8));
+
+	// A7 A8 A9 AA is destination memory address
+	RA8876_write_register(0xA7, 0x00);
+	RA8876_write_register(0xA8, 0x00);
+	RA8876_write_register(0xA9, 0x00);
+	RA8876_write_register(0xAA, 0x00);
+
+	// AB AC destination image width
+	RA8876_write_register(0xAB, RA8876_WIDTH & 0xFF);
+	RA8876_write_register(0xAC, RA8876_WIDTH >> 8);
+
+	// AD AE is destination X pos and AF B0 is destination Y
+	RA8876_write_register(0xAD, (uint8_t) (x & 0xFF));
+	RA8876_write_register(0xAE, (uint8_t) (x >> 8));
+	RA8876_write_register(0xAF, (uint8_t) (y & 0xFF));
+	RA8876_write_register(0xB0, (uint8_t) (y >> 8));
+
+	// B1 B2 is BTE width register
+	RA8876_write_register(0xB1, (width) & 0xFF);
+	RA8876_write_register(0xB2, (width) >> 8);
+	// B3 B4 is BTE height register
+	RA8876_write_register(0xB3, (height) & 0xFF);
+	RA8876_write_register(0xB4, (height) >> 8);
+
+
+	// 92 source1/destination color depth
+	// 0 01 001 01 -> 0x25 for 16 bit everywhere
+	RA8876_write_register(0x92, 0x25);
+
+	// 0x91 BTE function control register 1
+	// 1100 0000 -> 0xF0 means MPU WRITE with source0 from mpu
+	RA8876_write_register(0x91, 0xC0);
+
+	// 0x90 BTE function control register 0
+	// 000 1 00 0 = 0x10
+	RA8876_write_register(0x90, 0x10);
+
+	RA8876_write_register(0x04, 0x00); 
+	HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
+
+	// we have to do sending manually because it would interpret sent
+	// commands as data, we just have to stream it
+	uint8_t buf[2] = { 0, 0 };
+	uint8_t test[1] = { RA8876_DATA_WRITE };
+	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_RESET);
+	HAL_SPI_Transmit(&hspi5, test, sizeof(1), 10);
+	for (uint32_t i = 0; i < (width * height); i++) {
+
+		buf[0] = (uint8_t) (imageData[i] & 0x00ff);
+		buf[1] = (uint8_t) (imageData[i] >> 8);
+
+		HAL_SPI_Transmit(&hspi5, buf, sizeof(buf), 10);
+
+	}
+	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
+
+
+	while (RA8876_read_status_register() & 0x08) {
+		HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
+
+		osDelay(50);
+
+	}
 }

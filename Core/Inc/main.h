@@ -99,8 +99,6 @@ void Error_Handler(void);
 #define OTG_FS_ID_GPIO_Port GPIOA
 #define OTG_FS_DM_Pin GPIO_PIN_11
 #define OTG_FS_DM_GPIO_Port GPIOA
-#define OTG_FS_DP_Pin GPIO_PIN_12
-#define OTG_FS_DP_GPIO_Port GPIOA
 #define SWDIO_Pin GPIO_PIN_13
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
@@ -109,8 +107,6 @@ void Error_Handler(void);
 #define display_reset_GPIO_Port GPIOA
 #define I2S3_SCK_Pin GPIO_PIN_10
 #define I2S3_SCK_GPIO_Port GPIOC
-#define I2S3_SD_Pin GPIO_PIN_12
-#define I2S3_SD_GPIO_Port GPIOC
 #define display_wait_Pin GPIO_PIN_3
 #define display_wait_GPIO_Port GPIOD
 #define Audio_RST_Pin GPIO_PIN_4

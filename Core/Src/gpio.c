@@ -32,22 +32,23 @@
 
 /* USER CODE END 1 */
 
-/** Configure pins
-     PE2   ------> SPI5_SCK
+/** Configure pins as
+        * Analog
+        * Input
+        * Output
+        * EVENT_OUT
+        * EXTI
      PC3   ------> I2S2_SD
      PA4   ------> I2S3_WS
      PA5   ------> SPI1_SCK
      PA6   ------> SPI1_MISO
      PA7   ------> SPI1_MOSI
-     PE14   ------> SPI5_MOSI
      PB10   ------> I2S2_CK
      PB12   ------> I2S2_WS
      PA9   ------> USB_OTG_FS_VBUS
      PA10   ------> USB_OTG_FS_ID
      PA11   ------> USB_OTG_FS_DM
-     PA12   ------> USB_OTG_FS_DP
      PC10   ------> I2S3_CK
-     PC12   ------> I2S3_SD
      PB6   ------> I2C1_SCL
      PB9   ------> I2C1_SDA
 */
@@ -79,14 +80,6 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(display_backlight_control_GPIO_Port, display_backlight_control_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : PE2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_2;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF6_SPI5;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : display_CS_Pin */
   GPIO_InitStruct.Pin = display_CS_Pin;
@@ -139,14 +132,6 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PE14 */
-  GPIO_InitStruct.Pin = GPIO_PIN_14;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF6_SPI5;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
-
   /*Configure GPIO pins : CLK_IN_Pin PB12 */
   GPIO_InitStruct.Pin = CLK_IN_Pin|GPIO_PIN_12;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -170,8 +155,8 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(VBUS_FS_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : OTG_FS_ID_Pin OTG_FS_DM_Pin OTG_FS_DP_Pin */
-  GPIO_InitStruct.Pin = OTG_FS_ID_Pin|OTG_FS_DM_Pin|OTG_FS_DP_Pin;
+  /*Configure GPIO pins : OTG_FS_ID_Pin OTG_FS_DM_Pin */
+  GPIO_InitStruct.Pin = OTG_FS_ID_Pin|OTG_FS_DM_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
@@ -185,13 +170,13 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(display_reset_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : I2S3_SCK_Pin I2S3_SD_Pin */
-  GPIO_InitStruct.Pin = I2S3_SCK_Pin|I2S3_SD_Pin;
+  /*Configure GPIO pin : I2S3_SCK_Pin */
+  GPIO_InitStruct.Pin = I2S3_SCK_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  HAL_GPIO_Init(I2S3_SCK_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : display_wait_Pin OTG_FS_OverCurrent_Pin */
   GPIO_InitStruct.Pin = display_wait_Pin|OTG_FS_OverCurrent_Pin;

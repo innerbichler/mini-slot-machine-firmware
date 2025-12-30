@@ -36,7 +36,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define RGB565(r, g, b) (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -55,6 +55,13 @@ const osThreadAttr_t defaultTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for main_display */
+osThreadId_t main_displayHandle;
+const osThreadAttr_t main_display_attributes = {
+  .name = "main_display",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -62,6 +69,7 @@ const osThreadAttr_t defaultTask_attributes = {
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
+void main_display_task(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -95,6 +103,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
+  /* creation of main_display */
+  main_displayHandle = osThreadNew(main_display_task, NULL, &main_display_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -117,6 +128,26 @@ void StartDefaultTask(void *argument)
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
 
+
+	for (;;)
+  {
+
+		osDelay(1000);
+  }
+  /* USER CODE END StartDefaultTask */
+}
+
+/* USER CODE BEGIN Header_main_display_task */
+/**
+* @brief Function implementing the main_display thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_main_display_task */
+void main_display_task(void *argument)
+{
+  /* USER CODE BEGIN main_display_task */
+  /* Infinite loop */
 	// first reset stuff
 	HAL_GPIO_WritePin(display_reset_GPIO_Port, display_reset_Pin,
 			GPIO_PIN_RESET);
@@ -125,12 +156,14 @@ void StartDefaultTask(void *argument)
 	osDelay(200);
 
 	uint8_t initialised = 0;
-	uint16_t color = 0xF000;
+	uint16_t color = 0xF0D0;
 	uint8_t x = 0;
-	uint8_t step = 20;
-	for (;;)
-  {
+	uint8_t step = 5;
+	static uint16_t animBuffer[128 * 128];
+	int frame = 0;
 
+  for(;;)
+  {
 		if (initialised == 0
 				&& HAL_GPIO_ReadPin(display_wait_GPIO_Port, display_wait_Pin)
 						== GPIO_PIN_SET) {
@@ -159,33 +192,38 @@ void StartDefaultTask(void *argument)
 			RA8876_display_on();
 			HAL_Delay(20);
 			RA8876_clear_screen();
-
-			//RA8876_draw_rectangle(512, 200, 612, 400, 0x0F00);
+			HAL_GPIO_WritePin(display_backlight_control_GPIO_Port,
+			display_backlight_control_Pin, GPIO_PIN_SET);
 
 			HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
 
 			initialised = 1;
+			//RA8876_DrawImage_BTE(512, 300, 32, 32, TEST_IMAGE_32x32);
 		}
 		// only send something over SPI if wait is HIGH, wich means ready
 		if (initialised
 				&& HAL_GPIO_ReadPin(display_wait_GPIO_Port, display_wait_Pin)
-				== GPIO_PIN_SET) {
-			RA8876_clear_screen();
+						== GPIO_PIN_SET) {
 
-			RA8876_draw_rectangle(412 - x, 200 - x, 612 + x, 400 + x, color);
-			//color += 0x01;
-			x += step;
-			if (x > 150) {
-				step = -10;
+			for (int y = 0; y < 128; y++) {
+				for (int x = 0; x < 128; x++) {
+					// Use 'frame' to shift the colors every update
+					uint8_t r = (x + frame) % 256;
+					uint8_t g = (y + frame) % 256;
+					uint8_t b = ((x ^ y) + frame) % 256;
+
+					animBuffer[y * 128 + x] = RGB565(r, g, b);
+				}
 			}
-			if (x == 0) {
-				step = 10;
-			}
+
+			RA8876_draw_image_BTE(100, 100, 128, 128, animBuffer);
+			frame += 2;
 			HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
 		}
-		osDelay(250);
+		osDelay(100);
+
   }
-	/* USER CODE END StartDefaultTask */
+  /* USER CODE END main_display_task */
 }
 
 /* Private application code --------------------------------------------------*/
