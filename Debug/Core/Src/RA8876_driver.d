@@ -27,7 +27,7 @@ Core/Src/RA8876_driver.o: ../Core/Src/RA8876_driver.c ../Core/Inc/gpio.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h \
- ../Core/Inc/spi.h ../Core/Inc/RA8876_reg.h
+ ../Core/Inc/spi.h ../Core/Inc/RA8876_driver.h ../Core/Inc/RA8876_reg.h
 ../Core/Inc/gpio.h:
 ../Core/Inc/main.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
@@ -59,4 +59,5 @@ Core/Src/RA8876_driver.o: ../Core/Src/RA8876_driver.c ../Core/Inc/gpio.h \
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h:
 ../Core/Inc/spi.h:
+../Core/Inc/RA8876_driver.h:
 ../Core/Inc/RA8876_reg.h:

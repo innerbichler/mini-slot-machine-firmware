@@ -137,7 +137,7 @@ void StartDefaultTask(void *argument)
 				&& HAL_GPIO_ReadPin(display_wait_GPIO_Port, display_wait_Pin)
 						== GPIO_PIN_SET) {
 			RA8876_PLL_init();
-			uint8_t config_register = RA8876_read();
+			uint8_t config_register = RA8876_read_register(0x01);
 			if ((config_register & 0x80) != 0x80) {
 				//PLL init error
 				HAL_GPIO_WritePin(LD5_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
@@ -156,9 +156,14 @@ void StartDefaultTask(void *argument)
 			RA8876_display_init();
 
 			// turn display on test mode
-			RA8876_color_bar_test_on();
+			//RA8876_color_bar_test_on();
+			//
+			RA8876_display_on();
+			RA8876_clear_screen();
+			//RA8876_set_foreground_color(0x0000);
 			HAL_Delay(20);
 
+			//RA8876_draw_rect(10, 10, 1000, 500, 0xFF00FF00);
 			HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
 			initialised = 1;
 		}

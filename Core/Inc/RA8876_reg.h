@@ -136,7 +136,8 @@
 #define RA8876_SPLLC1_DIVK8_gc	(RA8876_SPLLC1_DIVK_1 | RA8876_SPLLC1_DIVK_0)
 #define RA8876_SPLLC1_DIVM_		0x01	// CCLK PLLDIVM
 
-#define RA8876_SPLLC2			0xA0	// CCLK PLL	Control Register 2
+// this was 0xA0, with no effect - guglhupf
+#define RA8876_SPLLC2			0x0A	// CCLK PLL	Control Register 2
 #define RA8876_SPLLC2_DIVN_5	0x20	// MCLK PLLDIVN
 #define RA8876_SPLLC2_DIVN_4	0x10
 #define RA8876_SPLLC2_DIVN_3	0x08
