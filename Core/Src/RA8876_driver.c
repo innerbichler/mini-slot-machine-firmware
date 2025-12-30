@@ -310,11 +310,90 @@ void RA8876_set_point_1_and_2(uint16_t x_start, uint16_t y_start,
 	RA8876_write_register(RA8876_DLVER1, high_byte);
 }
 void RA8876_clear_screen() {
-	RA8876_draw_rectangle(0, 0, RA8876_WIDTH, RA8876_HEIGHT, 0x0000);
+	RA8876_draw_rectangle(0, 0, RA8876_WIDTH, RA8876_HEIGHT, 0x0000, 1);
+}
+void RA8876_draw_circle(uint16_t x_start, uint16_t y_start,
+		uint16_t major_radius, uint16_t color, uint8_t filled) {
+	if (_text_mode)
+		RA8876_set_mode(GRAPHMODE);
+
+	// 0x7B 0x7C 0x7D 0x7E set the center of the circle
+	uint8_t low_byte = (uint8_t) (x_start & 0x00FF);
+	uint8_t high_byte = (uint8_t) (x_start >> 8);
+	RA8876_write_register(0x7B, low_byte);
+	RA8876_write_register(0x7C, high_byte);
+	low_byte = (uint8_t) (y_start & 0x00FF);
+	high_byte = (uint8_t) (y_start >> 8);
+	RA8876_write_register(0x7D, low_byte);
+	RA8876_write_register(0x7E, high_byte);
+
+	// 0x77 0x78 0x79 0x7A set major and minor radius
+	RA8876_write_register(0x77, major_radius);
+	RA8876_write_register(0x78, major_radius >> 8);
+	RA8876_write_register(0x79, major_radius);
+	RA8876_write_register(0x7A, major_radius >> 8);
+
+	RA8876_set_foreground_color(color);
+	// draw 0x76
+	// bit5= 0 bit4= 0 bit6 is fill bit7 is start!
+	// 11 00 0000 = 0xB0 or 0x80 for not fill
+	if (filled) {
+		RA8876_write_register(0x76, 0xC0);
+	} else {
+		RA8876_write_register(0x76, 0x80);
+
+	}
+	// Wait until drawing is done
+	while (RA8876_read_register(0x76) & 0x80) {
+	}
+}
+void RA8876_draw_diamond(uint16_t x_center, uint16_t y_center, uint16_t height,
+		uint16_t width, uint16_t color, uint16_t filled) {
+	// build a diamond made up of two triangles
+	// height is the complete height, same with width
+	uint16_t y_1 = y_center - (height / 2);
+	uint16_t y_2 = y_center + (height / 2);
+	uint16_t x_2 = x_center - (width / 2);
+	uint16_t x_3 = x_center + (width / 2);
+	// upper triangle
+	RA8876_draw_triangle(x_center, y_1, x_2, y_center, x_3, y_center, color,
+			filled);
+	RA8876_draw_triangle(x_2, y_center, x_center, y_2, x_3, y_center, color,
+			filled);
+}
+
+void RA8876_draw_triangle(uint16_t x_1, uint16_t y_1, uint16_t x_2,
+		uint16_t y_2, uint16_t x_3, uint16_t y_3, uint16_t color,
+		uint8_t filled) {
+	if (_text_mode)
+		RA8876_set_mode(GRAPHMODE);
+
+	RA8876_set_point_1_and_2(x_1, y_1, x_2, y_2);
+	// 0x70 0x71 0x72 0x73 point 3 of triangle
+	uint8_t low_byte = (uint8_t) (x_3 & 0x00FF);
+	uint8_t high_byte = (uint8_t) (x_3 >> 8);
+	RA8876_write_register(0x70, low_byte);
+	RA8876_write_register(0x71, high_byte);
+	low_byte = (uint8_t) (y_3 & 0x00FF);
+	high_byte = (uint8_t) (y_3 >> 8);
+	RA8876_write_register(0x72, low_byte);
+	RA8876_write_register(0x73, high_byte);
+	RA8876_set_foreground_color(color);
+
+	// on triangle fill is Bit 5
+	// 1 0 1 000 10
+	if (filled) {
+		RA8876_write_register(0x67, 0xA2);
+	} else {
+		RA8876_write_register(0x67, 0x82);
+
+	}
+	while (RA8876_read_register(0x67) & 0x80) {
+	}
 }
 void RA8876_draw_rectangle(uint16_t x_start, uint16_t y_start, uint16_t x_end,
 		uint16_t y_end,
-		uint16_t color) {
+		uint16_t color, uint8_t filled) {
 
 	if (_text_mode)
 		RA8876_set_mode(GRAPHMODE);
@@ -324,10 +403,13 @@ void RA8876_draw_rectangle(uint16_t x_start, uint16_t y_start, uint16_t x_end,
 
 	// draw 0x76
 	// bit5= 1 bit4= 0 bit6 is fill bit7 is start!
-	// 11 10 0000 =
-	//RA8876_write_register(RA8876_DCR1, 0xD0);
+	// 11 10 0000 = 0xE0 or 0xA0 for not fill
+	if (filled) {
 	RA8876_write_register(0x76, 0xE0);
+	} else {
+		RA8876_write_register(0x76, 0xA0);
 
+	}
 	// Wait until drawing is done
 	while (RA8876_read_register(0x76) & 0x80) {
 	}
@@ -458,3 +540,42 @@ void RA8876_draw_image_BTE(int16_t x, int16_t y, uint16_t width,
 		osDelay(5);
 	}
 }
+
+void RA8876_SLOT_draw_symbol(uint8_t number, uint8_t symbol, uint16_t color,
+		uint8_t filled) {
+	// call this to draw a symbol (shape) into 0-2 abschnitte
+	// this draws purely the shapes.
+	uint16_t width = (1024 / 3);
+	uint16_t shape_size = 200;
+	uint16_t x = ((width / 2) - (shape_size / 2) + (width * number) + 5);
+	uint16_t y = ((RA8876_HEIGHT / 2) - (shape_size / 2));
+	switch (symbol) {
+	case CIRCLE:
+
+		y = y + shape_size / 2;
+		x = x + shape_size / 2;
+		RA8876_draw_circle(x, y, shape_size / 2, color, filled);
+		break;
+	case TRIANGLE:
+		x = x + shape_size / 2;
+
+		uint16_t x_2 = x - shape_size / 2;
+		uint16_t y_2 = y + shape_size;
+		uint16_t x_3 = x + shape_size / 2;
+		uint16_t y_3 = y + shape_size;
+
+		RA8876_draw_triangle(x, y, x_2, y_2, x_3, y_3, color, filled);
+		break;
+	case DIAMOND:
+		x = x + shape_size / 2;
+		y = y + shape_size / 2;
+
+		RA8876_draw_diamond(x, y, shape_size, shape_size, color, filled);
+		break;
+	default:
+		RA8876_draw_rectangle(x, y, x + shape_size, y + shape_size, color,
+				filled);
+
+	}
+}
+

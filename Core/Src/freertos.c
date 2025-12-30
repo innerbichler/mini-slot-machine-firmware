@@ -27,12 +27,13 @@
 /* USER CODE BEGIN Includes */
 #include "gpio.h"
 #include "RA8876_driver.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 static inline uint16_t to_rgb565(uint8_t r, uint8_t g, uint8_t b);
-
+uint8_t simple_rand(void);
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -162,6 +163,8 @@ void main_display_task(void *argument)
 	uint8_t step = 5;
 	static uint16_t animBuffer[128 * 128];
 	int frame = 0;
+	int ran_symbol = 1;
+	osDelay(10);
 
   for(;;)
   {
@@ -219,19 +222,29 @@ void main_display_task(void *argument)
 
 			}
 
-			RA8876_draw_image_BTE(512 - 128, 300 - 128, 128, 128, animBuffer);
-			RA8876_draw_image_BTE(512 - 128, 300, 128, 128, animBuffer);
-			RA8876_draw_image_BTE(512, 300 - 128, 128, 128, animBuffer);
-			RA8876_draw_image_BTE(512, 300, 128, 128, animBuffer);
+//			RA8876_draw_image_BTE(512 - 128, 300 - 128, 128, 128, animBuffer);
+//			RA8876_draw_image_BTE(512 - 128, 300, 128, 128, animBuffer);
+//			RA8876_draw_image_BTE(512, 300 - 128, 128, 128, animBuffer);
+//			RA8876_draw_image_BTE(512, 300, 128, 128, animBuffer);
+			ran_symbol = !ran_symbol;
+			RA8876_SLOT_draw_symbol(0, RECTANGLE, 0x0000, 1);
+			RA8876_SLOT_draw_symbol(0, ran_symbol + 1, 0xd880, ran_symbol);
+
+			RA8876_SLOT_draw_symbol(1, RECTANGLE, 0x0000, 1);
+			RA8876_SLOT_draw_symbol(1, ran_symbol, 0x0542, !ran_symbol);
+
+			RA8876_SLOT_draw_symbol(2, RECTANGLE, 0x0000, 1);
+			RA8876_SLOT_draw_symbol(2, ran_symbol + 2, 0x283a, ran_symbol);
 
 
 			frame += 1;
+
 			if (frame > 0xFE) {
 				frame = 0;
 			}
 			HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
 		}
-		osDelay(5);
+		osDelay(500);
 
   }
   /* USER CODE END main_display_task */
@@ -245,6 +258,16 @@ static inline uint16_t to_rgb565(uint8_t r, uint8_t g, uint8_t b) {
 	uint16_t gg = (uint16_t) (g & 0xFC) << 3;
 	uint16_t bb = (uint16_t) (b >> 3);
 	return (rr | gg | bb);
+}
+uint8_t simple_rand() {
+	static uint32_t x = 123456789; // Seed
+
+	// Tiny Xorshift algorithm (very fast, no HardFault)
+	x ^= x << 13;
+	x ^= x >> 17;
+	x ^= x << 5;
+
+	return (uint8_t) (x & 0x01); // Returns 0 or 1
 }
 /* USER CODE END Application */
 

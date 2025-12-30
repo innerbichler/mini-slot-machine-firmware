@@ -31,11 +31,21 @@ void RA8876_set_text_coordinates(uint16_t x0, uint16_t y0);
 
 void RA8876_print(char *text);
 void RA8876_draw_rectangle(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
-		uint16_t color);
+		uint16_t color, uint8_t filled);
+void RA8876_draw_circle(uint16_t x_start, uint16_t y_start,
+		uint16_t major_radius, uint16_t color, uint8_t filled);
+void RA8876_draw_triangle(uint16_t x_1, uint16_t y_1, uint16_t x_2,
+		uint16_t y_2, uint16_t x_3, uint16_t y_3, uint16_t color,
+		uint8_t filled);
+void RA8876_draw_diamond(uint16_t x_center, uint16_t y_center, uint16_t height,
+		uint16_t width, uint16_t color, uint16_t filled);
 void RA8876_draw_image_BTE(int16_t x, int16_t y, uint16_t width,
 		uint16_t height,
 		const uint16_t *imageData);
 void RA8876_draw_mario(int x, int y);
+
+void RA8876_SLOT_draw_symbol(uint8_t number, uint8_t symbol, uint16_t color,
+		uint8_t filled);
 
 // the four options of interacting with the chip
 // A0 is bit 7 -> 0 for command/status, 1 for data
@@ -64,6 +74,9 @@ enum RA8876_status {
 };
 enum RA8876_dispMode {
 	GRAPHMODE = 0, TEXTMODE = 1
+};
+enum RA8876_SYMBOLS {
+	RECTANGLE = 0, CIRCLE = 1, TRIANGLE = 2, DIAMOND = 3
 };
 
 #endif /* INC_RA8876_DRIVER_H_ */
