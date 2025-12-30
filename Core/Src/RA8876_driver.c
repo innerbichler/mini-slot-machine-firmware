@@ -147,12 +147,16 @@ void RA8876_display_init() {
 	// 0x54 canvas image width 0 and 1
 	// it is in 4pixel resolutions? in 11 bits
 	uint16_t canvas_width = RA8876_WIDTH;
+
+	// this vodoo was the problem
 	uint8_t lower_six = (uint8_t) ((canvas_width & 0b0000000000111111) << 2);
 	uint8_t higher_five = (uint8_t) ((canvas_width & 0b0000011111000000) >> 6);
+
 	low_byte = (uint8_t) (canvas_width & 0x00FF);
 	high_byte = (uint8_t) (canvas_width >> 8);
-	RA8876_write_register(0x54, low_byte); // only 7-2 active bits
-	RA8876_write_register(0x55, high_byte); // only only 4-0 active
+	RA8876_write_register(0x54, low_byte);
+	RA8876_write_register(0x55, high_byte);
+
 
 
 	// 0x56 0x57 active window upper left corner x leave as 0
@@ -179,6 +183,10 @@ void RA8876_display_init() {
 
 
 	// 0x20 - 0x23 main image start address we leave at 0 for now
+	RA8876_write_register(0x20, 0x00);
+	RA8876_write_register(0x21, 0x00);
+	RA8876_write_register(0x22, 0x00);
+	RA8876_write_register(0x23, 0x00);
 
 	//0x24 main image width 0 and 1
 	window_width = RA8876_WIDTH;
@@ -308,14 +316,14 @@ void RA8876_set_point_1_and_2(uint16_t x_start, uint16_t y_start,
 	RA8876_write_register(RA8876_DLVER1, high_byte);
 }
 void RA8876_clear_screen() {
-	RA8876_draw_rectangle(0, 0, RA8876_WIDTH - 1, RA8876_HEIGHT - 1, 0x0000);
+	RA8876_draw_rectangle(0, 0, RA8876_WIDTH, RA8876_HEIGHT, 0x0000);
 }
 void RA8876_draw_rectangle(uint16_t x_start, uint16_t y_start, uint16_t x_end,
 		uint16_t y_end,
 		uint16_t color) {
 
 	if (_text_mode)
-	RA8876_set_mode(GRAPHMODE);
+		RA8876_set_mode(GRAPHMODE);
 
 	RA8876_set_point_1_and_2(x_start, y_start, x_end, y_end);
 	RA8876_set_foreground_color(color);

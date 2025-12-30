@@ -121,15 +121,13 @@ void StartDefaultTask(void *argument)
 	HAL_GPIO_WritePin(display_reset_GPIO_Port, display_reset_Pin,
 			GPIO_PIN_RESET);
 	osDelay(50);
-
 	HAL_GPIO_WritePin(display_reset_GPIO_Port, display_reset_Pin, GPIO_PIN_SET);
-
 	osDelay(200);
 
 	uint8_t initialised = 0;
-
-
-
+	uint16_t color = 0xF000;
+	uint8_t x = 0;
+	uint8_t step = 20;
 	for (;;)
   {
 
@@ -156,35 +154,38 @@ void StartDefaultTask(void *argument)
 			RA8876_display_init();
 
 			// turn display on test mode
-			//RA8876_color_bar_test_on();
-			//
-			RA8876_display_on();
-			RA8876_clear_screen();
-			//RA8876_set_foreground_color(0x0000);
-			HAL_Delay(20);
+			// RA8876_color_bar_test_on();
 
-			//RA8876_draw_rect(10, 10, 1000, 500, 0xFF00FF00);
+			RA8876_display_on();
+			HAL_Delay(20);
+			RA8876_clear_screen();
+
+			//RA8876_draw_rectangle(512, 200, 612, 400, 0x0F00);
+
 			HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
+
 			initialised = 1;
 		}
 		// only send something over SPI if wait is HIGH, wich means ready
-		if (HAL_GPIO_ReadPin(display_wait_GPIO_Port, display_wait_Pin)
+		if (initialised
+				&& HAL_GPIO_ReadPin(display_wait_GPIO_Port, display_wait_Pin)
 				== GPIO_PIN_SET) {
-			//uint8_t config_register = RA8876_read_register(0x01);
-			HAL_Delay(2);
+			RA8876_clear_screen();
 
-			uint8_t config_register = RA8876_read_register(0x12);
-			//uint8_t status = RA8876_read_status_register();
-			HAL_Delay(2);
-
-
+			RA8876_draw_rectangle(412 - x, 200 - x, 612 + x, 400 + x, color);
+			//color += 0x01;
+			x += step;
+			if (x > 150) {
+				step = -10;
+			}
+			if (x == 0) {
+				step = 10;
+			}
+			HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
 		}
-
-		HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
 		osDelay(250);
-
   }
-  /* USER CODE END StartDefaultTask */
+	/* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/
