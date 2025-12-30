@@ -31,6 +31,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+static inline uint16_t to_rgb565(uint8_t r, uint8_t g, uint8_t b);
 
 /* USER CODE END PTD */
 
@@ -195,32 +196,42 @@ void main_display_task(void *argument)
 			HAL_GPIO_WritePin(display_backlight_control_GPIO_Port,
 			display_backlight_control_Pin, GPIO_PIN_SET);
 
+			RA8876_draw_mario(25, 25);
+			osDelay(20);
 			HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
-
 			initialised = 1;
-			//RA8876_DrawImage_BTE(512, 300, 32, 32, TEST_IMAGE_32x32);
 		}
 		// only send something over SPI if wait is HIGH, wich means ready
 		if (initialised
 				&& HAL_GPIO_ReadPin(display_wait_GPIO_Port, display_wait_Pin)
 						== GPIO_PIN_SET) {
 
-			for (int y = 0; y < 128; y++) {
-				for (int x = 0; x < 128; x++) {
-					// Use 'frame' to shift the colors every update
-					uint8_t r = (x + frame) % 256;
-					uint8_t g = (y + frame) % 256;
-					uint8_t b = ((x ^ y) + frame) % 256;
+			for (uint32_t i = 0; i < (128 * 128); i++) {
 
-					animBuffer[y * 128 + x] = RGB565(r, g, b);
+				//animBuffer[i] = to_rgb565(0x00, 0x00, 0xff);
+				if ((i % frame) == 0) {
+					animBuffer[i] = (uint16_t) 0xf80f;
 				}
+				else {
+					animBuffer[i] = (uint16_t) 0x0000;
+				}
+				//animBuffer[i] = (uint16_t) 0xf800;
+
 			}
 
-			RA8876_draw_image_BTE(100, 100, 128, 128, animBuffer);
-			frame += 2;
+			RA8876_draw_image_BTE(512 - 128, 300 - 128, 128, 128, animBuffer);
+			RA8876_draw_image_BTE(512 - 128, 300, 128, 128, animBuffer);
+			RA8876_draw_image_BTE(512, 300 - 128, 128, 128, animBuffer);
+			RA8876_draw_image_BTE(512, 300, 128, 128, animBuffer);
+
+
+			frame += 1;
+			if (frame > 0xFE) {
+				frame = 0;
+			}
 			HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
 		}
-		osDelay(100);
+		osDelay(5);
 
   }
   /* USER CODE END main_display_task */
@@ -228,6 +239,12 @@ void main_display_task(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-
+static inline uint16_t to_rgb565(uint8_t r, uint8_t g, uint8_t b) {
+	// Force everything to uint16_t before shifting to prevent bit-loss
+	uint16_t rr = (uint16_t) (r & 0xF8) << 8;
+	uint16_t gg = (uint16_t) (g & 0xFC) << 3;
+	uint16_t bb = (uint16_t) (b >> 3);
+	return (rr | gg | bb);
+}
 /* USER CODE END Application */
 

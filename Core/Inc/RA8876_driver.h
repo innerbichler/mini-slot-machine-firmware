@@ -35,7 +35,7 @@ void RA8876_draw_rectangle(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
 void RA8876_draw_image_BTE(int16_t x, int16_t y, uint16_t width,
 		uint16_t height,
 		const uint16_t *imageData);
-void DrawCoolPattern(int x, int y);
+void RA8876_draw_mario(int x, int y);
 
 // the four options of interacting with the chip
 // A0 is bit 7 -> 0 for command/status, 1 for data

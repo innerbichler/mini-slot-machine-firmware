@@ -17,5 +17,5 @@
 ../Core/Src/RA8876_driver.c:344:6:RA8876_set_foreground_color	24	static
 ../Core/Src/RA8876_driver.c:357:6:RA8876_set_background_color	24	static
 ../Core/Src/RA8876_driver.c:365:6:RA8876_write_data_16bit	16	static
-../Core/Src/RA8876_driver.c:372:6:DrawCoolPattern	32	static
-../Core/Src/RA8876_driver.c:381:6:RA8876_draw_image_BTE	40	static
+../Core/Src/RA8876_driver.c:372:6:RA8876_draw_mario	24	static
+../Core/Src/RA8876_driver.c:375:6:RA8876_draw_image_BTE	40	static

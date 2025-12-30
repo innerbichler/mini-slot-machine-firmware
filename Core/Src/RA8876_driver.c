@@ -369,14 +369,8 @@ void RA8876_write_data_16bit(uint16_t data) {
 	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_SET);
 
 }
-void DrawCoolPattern(int x, int y) {
-	// need static, otherwise causes stack overflow
-	static uint16_t buffer[64 * 64];
-	for (int j = 0; j < (64 * 64); j++) {
-		buffer[j] = 0xf800;
-	}
-
-	RA8876_draw_image_BTE(x, y, 64, 64, buffer);
+void RA8876_draw_mario(int x, int y) {
+	RA8876_draw_image_BTE(x, y, 16, 16, mario_16x16);
 }
 void RA8876_draw_image_BTE(int16_t x, int16_t y, uint16_t width,
 		uint16_t height,
@@ -449,16 +443,18 @@ void RA8876_draw_image_BTE(int16_t x, int16_t y, uint16_t width,
 		buf[1] = (uint8_t) (imageData[i] >> 8);
 
 		HAL_SPI_Transmit(&hspi5, buf, sizeof(buf), 10);
+		// we need to add some delay so the display doesnt lose info
+		if ((i % 512) == 0) {
+			osDelay(1);
+		}
 
 	}
 	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
 
 
-	while (RA8876_read_status_register() & 0x08) {
+	while (RA8876_read_register(0x90) & 0x10) {
 		HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
-
-		osDelay(50);
-
+		osDelay(5);
 	}
 }
