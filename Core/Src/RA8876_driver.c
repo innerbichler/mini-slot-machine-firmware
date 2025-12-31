@@ -11,8 +11,8 @@
 
 
 enum RA8876_dispMode _text_mode = GRAPHMODE;
-
-
+uint8_t _symbol = 0;
+uint16_t _color = 0;
 void RA8876_write(uint8_t write_command, uint8_t data) {
 	uint8_t buf[2] = { write_command, data };
 	HAL_SPI_Transmit(&hspi5, buf, sizeof(buf), 10);
@@ -310,7 +310,8 @@ void RA8876_set_point_1_and_2(uint16_t x_start, uint16_t y_start,
 	RA8876_write_register(RA8876_DLVER1, high_byte);
 }
 void RA8876_clear_screen() {
-	RA8876_draw_rectangle(0, 0, RA8876_WIDTH, RA8876_HEIGHT, 0x0000, 1);
+	RA8876_draw_rectangle(0, 0, RA8876_WIDTH, RA8876_HEIGHT,
+			RA8876_BACKGROUND_PRIMARY_COLOR, 1);
 }
 void RA8876_draw_circle(uint16_t x_start, uint16_t y_start,
 		uint16_t major_radius, uint16_t color, uint8_t filled) {
@@ -541,7 +542,7 @@ void RA8876_draw_image_BTE(int16_t x, int16_t y, uint16_t width,
 	}
 }
 
-void RA8876_SLOT_draw_symbol(uint8_t number, uint8_t symbol, uint16_t color,
+void RA8876_SLOT_draw_roll(uint8_t number,
 		uint8_t filled) {
 	// call this to draw a symbol (shape) into 0-2 abschnitte
 	// this draws purely the shapes.
@@ -549,6 +550,108 @@ void RA8876_SLOT_draw_symbol(uint8_t number, uint8_t symbol, uint16_t color,
 	uint16_t shape_size = 200;
 	uint16_t x = ((width / 2) - (shape_size / 2) + (width * number) + 5);
 	uint16_t y = ((RA8876_HEIGHT / 2) - (shape_size / 2));
+	uint8_t symbols[5] = { TREE, PRESENT, DIAMOND, PACMAN, SNOWMAN };
+	uint16_t colors[3] = { RA8876_FOREGROUND_PRIMARY_COLOR,
+	RA8876_FOREGROUND_SECONDARY_COLOR, RA8876_FOREGROUND_TERITARY_COLOR };
+	RA8876_SLOT_draw_symbol(x, y, shape_size, symbols[_symbol], colors[_color],
+			filled,
+			1);
+	_symbol++;
+	if (_symbol > 4) {
+		_symbol = 0;
+	}
+	_color++;
+	if (_color > 2) {
+		_color = 0;
+	}
+}
+
+void RA8876_draw_pacman(uint16_t x, uint16_t y, uint16_t shape_size) {
+	RA8876_draw_circle(x, y, shape_size, 0xffe0, 1);
+	uint8_t eye_x = shape_size / 2;
+	uint8_t eye_y = shape_size / 2;
+
+	RA8876_draw_circle(x, y - eye_y, shape_size / 6,
+			RA8876_BACKGROUND_PRIMARY_COLOR,
+			1);
+	uint8_t mouth_x = shape_size + 2;
+	uint8_t mouth_y = shape_size + 2;
+	RA8876_draw_triangle(x, y, x + mouth_x, y + mouth_y, x + mouth_x,
+			y - mouth_y,
+			RA8876_BACKGROUND_PRIMARY_COLOR, 1);
+}
+void RA8876_draw_tree(uint16_t x, uint16_t y, uint16_t shape_size) {
+	RA8876_draw_triangle(x, y - (shape_size / 2), x - (shape_size / 2),
+			y + (shape_size / 4), x + (shape_size / 2), y + (shape_size / 4),
+			0x01e0, 1);
+	RA8876_draw_rectangle(x - (shape_size / 5), y + (shape_size / 4),
+			x + (shape_size / 5), y + (shape_size / 2), 0x38e0, 1);
+}
+void RA8876_draw_present(uint16_t x, uint16_t y, uint16_t shape_size) {
+	// just a square with a horizonzal and vertical rect
+	// x and y are the center
+	RA8876_draw_rectangle(x - (shape_size / 2), y - (shape_size / 2),
+			x + (shape_size / 2), y + (shape_size / 2), 0x0780, 1);
+
+	uint16_t wrapping_width = shape_size / 4;
+	RA8876_draw_rectangle(x - (wrapping_width / 2),
+			y - (shape_size / 2),
+			x + (wrapping_width / 2), y + (shape_size / 2), 0xf800,
+			1);
+	RA8876_draw_rectangle(x - (shape_size / 2), y - (wrapping_width / 2),
+			x + (shape_size / 2), y + (wrapping_width / 2), 0xf800, 1);
+}
+void RA8876_draw_snowman(uint16_t x, uint16_t y, uint16_t shape_size) {
+	// shapesize is the distance to the side of a rectangle equivalent
+	// bottom circle is half of size
+	uint16_t half_size = shape_size / 2;
+	RA8876_draw_circle(x, y + half_size, shape_size / 2, 0xffff, 1);
+
+	RA8876_draw_circle(x, y - (half_size / 2), shape_size / 4, 0xffff, 1);
+	// the hat is the upper 1/4 we do shape_size / 5 to make the brim standout
+	RA8876_draw_rectangle(x - (shape_size / 6), y - shape_size,
+			x + (shape_size / 6),
+			y - half_size,
+			0x28c0, 1);
+	// the brim
+	RA8876_draw_rectangle(x - (shape_size / 4), y - half_size,
+			x + (shape_size / 4), y - (shape_size / 3), 0x28c0, 1);
+
+	// last the nose, he doesnt need eyes
+	// starting point is the center of the head
+	uint16_t head_y = y - (shape_size / 4);
+	RA8876_draw_triangle(x, head_y, x + half_size, head_y + (shape_size / 10),
+			x - (shape_size / 10), head_y + (shape_size / 8), 0xfca0, 1);
+}
+void RA8876_draw_death_start(uint16_t x, uint16_t y, uint16_t shape_size) {
+	RA8876_draw_circle(x, y, shape_size, 0x630c, 1);
+
+	uint16_t outer_ring = shape_size / 3;
+	uint16_t inner_ring = shape_size / 2;
+	RA8876_draw_circle(x + outer_ring, y - outer_ring, shape_size / 4, 0x18c3,
+			1);
+	RA8876_draw_circle(x + outer_ring, y - outer_ring, shape_size / 7, 0x1062,
+			1);
+
+	// remove some chunks from the left side
+	uint16_t left_x = x - shape_size;
+	RA8876_draw_rectangle(left_x, y - shape_size,
+			left_x + outer_ring,
+			y - outer_ring,
+			RA8876_BACKGROUND_PRIMARY_COLOR, 1);
+
+
+}
+
+void RA8876_SLOT_draw_symbol(uint16_t x, uint16_t y, uint16_t shape_size,
+		uint8_t symbol, uint16_t color, uint8_t filled, uint8_t clear) {
+	// symbol helper, draw any of the symbols at starting x and y
+
+	// just to clear
+	if (clear) {
+	RA8876_draw_rectangle(x, y, x + shape_size, y + shape_size,
+			RA8876_BACKGROUND_PRIMARY_COLOR, 1);
+	}
 	switch (symbol) {
 	case CIRCLE:
 
@@ -572,10 +675,111 @@ void RA8876_SLOT_draw_symbol(uint8_t number, uint8_t symbol, uint16_t color,
 
 		RA8876_draw_diamond(x, y, shape_size, shape_size, color, filled);
 		break;
+	case PACMAN:
+		y = y + shape_size / 2;
+		x = x + shape_size / 2;
+		RA8876_draw_pacman(x, y, shape_size / 2);
+		break;
+	case SNOWMAN:
+		y = y + shape_size / 2;
+		x = x + shape_size / 2;
+		RA8876_draw_snowman(x, y, shape_size / 2);
+		break;
+	case PRESENT:
+		y = y + shape_size / 2;
+		x = x + shape_size / 2;
+		RA8876_draw_present(x, y, shape_size);
+		break;
+	case TREE:
+		y = y + shape_size / 2;
+		x = x + shape_size / 2;
+		RA8876_draw_tree(x, y, shape_size);
+		break;
 	default:
 		RA8876_draw_rectangle(x, y, x + shape_size, y + shape_size, color,
 				filled);
 
 	}
 }
+void RA8876_fill_gradient_128x128(uint16_t *arr, uint16_t c1, uint16_t c2) {
+	static const int8_t map[4] = { -2, 1, 2, -1 };
 
+	int r1 = (c1 & 0xF800) >> 8;
+	int g1 = (c1 & 0x07E0) >> 3;
+	int b1 = (c1 & 0x001F) << 3;
+
+	int r2 = (c2 & 0xF800) >> 8;
+	int g2 = (c2 & 0x07E0) >> 3;
+	int b2 = (c2 & 0x001F) << 3;
+
+	for (int y = 0; y < 128; y++) {
+		int ry = r1 + ((r2 - r1) * y) / 127;
+		int gy = g1 + ((g2 - g1) * y) / 127;
+		int by = b1 + ((b2 - b1) * y) / 127;
+
+		for (int x = 0; x < 128; x++) {
+			int d = map[((y & 1) << 1) | (x & 1)];
+
+			int r = ry + d;
+			int g = gy + d;
+			int b = by + d;
+
+			if (r < 0)
+				r = 0;
+			else if (r > 255)
+				r = 255;
+			if (g < 0)
+				g = 0;
+			else if (g > 255)
+				g = 255;
+			if (b < 0)
+				b = 0;
+			else if (b > 255)
+				b = 255;
+
+			arr[y * 128 + x] = (uint16_t) (((r & 0xF8) << 8) | ((g & 0xFC) << 3)
+					| (b >> 3));
+		}
+	}
+}
+void RA8876_fill_bottom_gradient() {
+	static uint16_t animBuffer[128 * 128];
+
+	// first gradient is the top and bottom
+	RA8876_fill_gradient_128x128(animBuffer, RA8876_BACKGROUND_PRIMARY_COLOR,
+			RA8876_BACKGROUND_SECONDARY_COLOR);
+	for (int i = 0; i < 8; i++) {
+		RA8876_draw_image_BTE((i * 128), 600 - 128, 128, 128, animBuffer);
+
+
+	}
+
+	RA8876_fill_gradient_128x128(animBuffer, RA8876_BACKGROUND_SECONDARY_COLOR,
+			RA8876_BACKGROUND_PRIMARY_COLOR);
+	for (int i = 0; i < 8; i++) {
+		RA8876_draw_image_BTE(i * 128, 0, 128, 128, animBuffer
+);
+
+	}
+	int size = 32;
+	uint8_t symbols[4] = { PRESENT, SNOWMAN, DIAMOND, TREE, };
+	uint16_t symbol = symbols[0];
+	uint16_t colors[3] = { RA8876_FOREGROUND_PRIMARY_COLOR,
+	RA8876_FOREGROUND_SECONDARY_COLOR, RA8876_FOREGROUND_TERITARY_COLOR };
+	uint16_t color = 0;
+	for (int i = 0; i < 16; i++) {
+		RA8876_SLOT_draw_symbol((i * 64) + (size / 2), 600 - 64 - (size / 2),
+				size, symbols[symbol], colors[color], 1, 0);
+		RA8876_SLOT_draw_symbol((i * 64) + (size / 2), 64 - (size / 2),
+				size,
+				symbols[symbol], colors[color], 1, 0);
+		symbol++;
+		if (symbol > 3) {
+			symbol = 0;
+		}
+		color++;
+		if (color > 2) {
+			color = 0;
+		}
+	}
+}

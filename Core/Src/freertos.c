@@ -161,7 +161,6 @@ void main_display_task(void *argument)
 	uint16_t color = 0xF0D0;
 	uint8_t x = 0;
 	uint8_t step = 5;
-	static uint16_t animBuffer[128 * 128];
 	int frame = 0;
 	int ran_symbol = 1;
 	osDelay(10);
@@ -203,39 +202,20 @@ void main_display_task(void *argument)
 			osDelay(20);
 			HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
 			initialised = 1;
+			RA8876_fill_bottom_gradient();
+			//RA8876_draw_tree(512, 300, 100);
 		}
 		// only send something over SPI if wait is HIGH, wich means ready
 		if (initialised
 				&& HAL_GPIO_ReadPin(display_wait_GPIO_Port, display_wait_Pin)
 						== GPIO_PIN_SET) {
 
-			for (uint32_t i = 0; i < (128 * 128); i++) {
-
-				//animBuffer[i] = to_rgb565(0x00, 0x00, 0xff);
-				if ((i % frame) == 0) {
-					animBuffer[i] = (uint16_t) 0xf80f;
-				}
-				else {
-					animBuffer[i] = (uint16_t) 0x0000;
-				}
-				//animBuffer[i] = (uint16_t) 0xf800;
-
-			}
-
-//			RA8876_draw_image_BTE(512 - 128, 300 - 128, 128, 128, animBuffer);
-//			RA8876_draw_image_BTE(512 - 128, 300, 128, 128, animBuffer);
-//			RA8876_draw_image_BTE(512, 300 - 128, 128, 128, animBuffer);
-//			RA8876_draw_image_BTE(512, 300, 128, 128, animBuffer);
 			ran_symbol = !ran_symbol;
-			RA8876_SLOT_draw_symbol(0, RECTANGLE, 0x0000, 1);
-			RA8876_SLOT_draw_symbol(0, ran_symbol + 1, 0xd880, ran_symbol);
-
-			RA8876_SLOT_draw_symbol(1, RECTANGLE, 0x0000, 1);
-			RA8876_SLOT_draw_symbol(1, ran_symbol, 0x0542, !ran_symbol);
-
-			RA8876_SLOT_draw_symbol(2, RECTANGLE, 0x0000, 1);
-			RA8876_SLOT_draw_symbol(2, ran_symbol + 2, 0x283a, ran_symbol);
-
+//			RA8876_SLOT_draw_roll(0, ran_symbol);
+//
+			RA8876_SLOT_draw_roll(1, !ran_symbol);
+//
+//			RA8876_SLOT_draw_roll(2, ran_symbol);
 
 			frame += 1;
 
@@ -244,7 +224,7 @@ void main_display_task(void *argument)
 			}
 			HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
 		}
-		osDelay(500);
+		osDelay(1000);
 
   }
   /* USER CODE END main_display_task */
@@ -259,6 +239,7 @@ static inline uint16_t to_rgb565(uint8_t r, uint8_t g, uint8_t b) {
 	uint16_t bb = (uint16_t) (b >> 3);
 	return (rr | gg | bb);
 }
+
 uint8_t simple_rand() {
 	static uint32_t x = 123456789; // Seed
 
