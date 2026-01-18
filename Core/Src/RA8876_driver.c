@@ -538,8 +538,16 @@ void RA8876_draw_image_BTE(int16_t x, int16_t y, uint16_t width,
 		osDelay(5);
 	}
 }
+void RA8876_SLOT_clear() {
+	// clear the center to be ready for the next run
+	// just a rectangle in the middle
 
-void RA8876_SLOT_draw_roll(uint8_t number,
+	uint16_t width = 1024;
+	RA8876_draw_rectangle(0, 128, width, 600 - 128,
+			RA8876_BACKGROUND_PRIMARY_COLOR, 1);
+}
+
+uint8_t RA8876_SLOT_draw_roll(uint8_t number,
 		uint8_t filled) {
 	// call this to draw a symbol (shape) into 0-2 abschnitte
 	// this draws purely the shapes.
@@ -553,6 +561,7 @@ void RA8876_SLOT_draw_roll(uint8_t number,
 	RA8876_SLOT_draw_symbol(x, y, shape_size, symbols[_symbol], colors[_color],
 			filled,
 			1);
+	uint8_t drawn_symbol = symbols[_symbol];
 	_symbol++;
 	if (_symbol > 4) {
 		_symbol = 0;
@@ -561,6 +570,7 @@ void RA8876_SLOT_draw_roll(uint8_t number,
 	if (_color > 2) {
 		_color = 0;
 	}
+	return (drawn_symbol);
 }
 
 void RA8876_draw_pacman(uint16_t x, uint16_t y, uint16_t shape_size) {
@@ -760,7 +770,7 @@ void RA8876_fill_bottom_gradient() {
 	}
 	int size = 32;
 	uint8_t symbols[4] = { PRESENT, SNOWMAN, DIAMOND, TREE, };
-	uint16_t symbol = symbols[0];
+	uint16_t symbol = 0;
 	uint16_t colors[3] = { RA8876_FOREGROUND_PRIMARY_COLOR,
 	RA8876_FOREGROUND_SECONDARY_COLOR, RA8876_FOREGROUND_TERITARY_COLOR };
 	uint16_t color = 0;

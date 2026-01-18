@@ -49,12 +49,13 @@ void RA8876_draw_death_start(uint16_t x, uint16_t y, uint16_t shape_size);
 void RA8876_draw_snowman(uint16_t x, uint16_t y, uint16_t shape_size);
 void RA8876_draw_present(uint16_t x, uint16_t y, uint16_t shape_size);
 void RA8876_draw_tree(uint16_t x, uint16_t y, uint16_t shape_size);
+void RA8876_SLOT_clear();
 
 void RA8876_fill_bottom_gradient();
 
 void RA8876_SLOT_draw_symbol(uint16_t x, uint16_t y, uint16_t shape_size,
 		uint8_t symbol, uint16_t color, uint8_t filled, uint8_t clear);
-void RA8876_SLOT_draw_roll(uint8_t number, uint8_t filled);
+uint8_t RA8876_SLOT_draw_roll(uint8_t number, uint8_t filled);
 // the four options of interacting with the chip
 // A0 is bit 7 -> 0 for command/status, 1 for data
 // WR is bit 6 -> 0 for write, 1 for read

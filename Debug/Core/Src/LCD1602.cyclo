@@ -1,0 +1,15 @@
+../Core/Src/LCD1602.c:30:13:LCD_WriteByte	1
+../Core/Src/LCD1602.c:87:13:LCD_SendCmd_8bit	1
+../Core/Src/LCD1602.c:112:13:LCD_SendCmd	1
+../Core/Src/LCD1602.c:131:13:LCD_SendByte	2
+../Core/Src/LCD1602.c:165:6:LCD_Init	1
+../Core/Src/LCD1602.c:272:6:LCD_PrintString	2
+../Core/Src/LCD1602.c:375:6:LCD_Clear	1
+../Core/Src/LCD1602.c:394:6:LCD_LedOnOff	2
+../Core/Src/LCD1602.c:417:6:LCD_SetCursor	5
+../Core/Src/LCD1602.c:455:6:LCD_StringRunR	1
+../Core/Src/LCD1602.c:472:6:LCD_StringRunL	1
+../Core/Src/LCD1602.c:490:6:LCD_TextOnOff	2
+../Core/Src/LCD1602.c:516:6:LCD_CreateChar	3
+../Core/Src/LCD1602.c:552:6:LCD_PrintMyChar	2
+../Core/Src/LCD1602.c:575:6:LCD_CursorOnOff	2

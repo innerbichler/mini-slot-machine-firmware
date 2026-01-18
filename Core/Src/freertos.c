@@ -51,10 +51,17 @@ void initialise_main_display(void);
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 typedef enum {
-	SlotLocked, SlotEnterPassword, SlotStartup, SlotIdle, SlotGameStart,
+	SlotLocked,
+	SlotEnterPassword,
+	SlotStartup,
+	SlotIdle,
+	SlotGameStart,
+	SlotGameRoll2,
+	SlotGameRoll3,
+	SlotGameEvaluation,
 
 } SlotGamestateEnum;
-SlotGamestateEnum GameState = SlotLocked;
+SlotGamestateEnum GameState = SlotStartup;
 
 
 /* USER CODE END PM */
@@ -168,16 +175,7 @@ void StartDefaultTask(void *argument)
 
 	for (;;)
   {
-		if (HAL_GPIO_ReadPin(stop_btn_1_GPIO_Port, stop_btn_1_Pin)) {
-			MP3_play_track(3);
-		}
-		if (HAL_GPIO_ReadPin(stop_btn_2_GPIO_Port, stop_btn_2_Pin)) {
-			MP3_play_track(4);
-		}
-		if (HAL_GPIO_ReadPin(stop_btn_3_GPIO_Port, stop_btn_3_Pin)) {
-			MP3_play_track(5);
-		}
-		osDelay(250);
+		osDelay(2500);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -201,12 +199,13 @@ void main_display_task(void *argument)
 	osDelay(200);
 
 	uint8_t initialised = 0;
-	uint16_t color = 0xF0D0;
-	uint8_t x = 0;
-	uint8_t step = 5;
-	int frame = 0;
 	int ran_symbol = 1;
 	osDelay(10);
+	uint8_t current_symbol = 0;
+	uint8_t roll1_symbol = 0;
+	uint8_t roll2_symbol = 0;
+	uint8_t roll3_symbol = 0;
+
 
   for(;;)
   {
@@ -226,24 +225,42 @@ void main_display_task(void *argument)
 							display_wait_Pin) == GPIO_PIN_SET) {
 
 				ran_symbol = !ran_symbol;
-				RA8876_SLOT_draw_roll(0, ran_symbol);
-				RA8876_SLOT_draw_roll(1, !ran_symbol);
-				RA8876_SLOT_draw_roll(2, ran_symbol);
-
-				frame += 1;
-
-				if (frame > 0xFE) {
-					frame = 0;
-				}
+				//RA8876_SLOT_draw_roll(0, ran_symbol);
+				//RA8876_SLOT_draw_roll(1, !ran_symbol);
+				//RA8876_SLOT_draw_roll(2, ran_symbol);
 
 			}
 			osDelay(500);
+			break;
+		case SlotGameStart:
+			// draw roll one until first button is pressed
+			roll1_symbol = RA8876_SLOT_draw_roll(0, 1);
+			break;
+		case SlotGameRoll2:
+			// first save the selected symbol of the roll before
+			roll2_symbol = RA8876_SLOT_draw_roll(1, 1);
+			break;
+		case SlotGameRoll3:
+			// last roll
+			roll3_symbol = RA8876_SLOT_draw_roll(2, 1);
+			break;
+		case SlotGameEvaluation:
+			if (roll3_symbol == roll2_symbol && roll3_symbol == roll1_symbol) {
+				// winner winner chicken dinner
+				MP3_play_sound_effect(4);
+				osDelay(7000);
+			} else {
+				//MP3_play_sound_effect(3);
+				osDelay(500);
+			}
+			RA8876_SLOT_clear();
+			GameState = SlotIdle;
 			break;
 		default:
 			osDelay(500);
 			break;
 		}
-
+		osDelay(1000);
 
   }
   /* USER CODE END main_display_task */
@@ -270,14 +287,48 @@ void buttons_task(void *argument)
 
 			if (HAL_GPIO_ReadPin(stop_btn_0_GPIO_Port, stop_btn_0_Pin)) {
 				GameState = SlotGameStart;
-				MP3_play_sound_effect(1);
 			}
 
+			break;
+		case SlotGameStart:
+			// reset all other buttons
+			HAL_GPIO_WritePin(stop_led_0_GPIO_Port, stop_led_0_Pin,
+					GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(stop_led_1_GPIO_Port, stop_led_1_Pin,
+					GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(stop_led_2_GPIO_Port, stop_led_2_Pin,
+					GPIO_PIN_RESET);
+			HAL_GPIO_TogglePin(stop_led_3_GPIO_Port, stop_led_3_Pin);
+			if (HAL_GPIO_ReadPin(stop_btn_3_GPIO_Port, stop_btn_3_Pin)) {
+				GameState = SlotGameRoll2;
+			}
+			break;
+		case SlotGameRoll2:
+			HAL_GPIO_WritePin(stop_led_3_GPIO_Port, stop_led_3_Pin,
+					GPIO_PIN_SET);
+			HAL_GPIO_TogglePin(stop_led_2_GPIO_Port, stop_led_2_Pin);
+			if (HAL_GPIO_ReadPin(stop_btn_2_GPIO_Port, stop_btn_2_Pin)) {
+				GameState = SlotGameRoll3;
+			}
+			break;
+		case SlotGameRoll3:
+			HAL_GPIO_WritePin(stop_led_2_GPIO_Port, stop_led_2_Pin,
+					GPIO_PIN_SET);
+			HAL_GPIO_TogglePin(stop_led_1_GPIO_Port, stop_led_1_Pin);
+			if (HAL_GPIO_ReadPin(stop_btn_1_GPIO_Port, stop_btn_1_Pin)) {
+				GameState = SlotGameEvaluation;
+			}
+			break;
+		case SlotGameEvaluation:
+			write_stop_buttons(GPIO_PIN_SET);
+			osDelay(150);
+			write_stop_buttons(GPIO_PIN_RESET);
 			break;
 		default:
 			osDelay(250);
 			break;
 		}
+		osDelay(150);
 	}
   /* USER CODE END buttons_task */
 }
@@ -371,6 +422,12 @@ void control_display(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+void write_stop_buttons(GPIO_PinState state) {
+	HAL_GPIO_WritePin(stop_led_0_GPIO_Port, stop_led_0_Pin, state);
+	HAL_GPIO_WritePin(stop_led_1_GPIO_Port, stop_led_1_Pin, state);
+	HAL_GPIO_WritePin(stop_led_2_GPIO_Port, stop_led_2_Pin, state);
+	HAL_GPIO_WritePin(stop_led_3_GPIO_Port, stop_led_3_Pin, state);
+}
 void stagger_stop_buttons(uint16_t time) {
 	HAL_GPIO_TogglePin(stop_led_0_GPIO_Port, stop_led_0_Pin);
 	osDelay(time);
@@ -410,8 +467,6 @@ void initialise_main_display() {
 	HAL_Delay(20);
 
 	RA8876_clear_screen();
-
-	RA8876_draw_mario(25, 25);
 	osDelay(20);
 
 	RA8876_fill_bottom_gradient();

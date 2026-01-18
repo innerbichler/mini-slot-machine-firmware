@@ -1,8 +1,9 @@
-../Core/Src/freertos.c:112:6:MX_FREERTOS_Init	8	static
-../Core/Src/freertos.c:163:6:StartDefaultTask	16	static
-../Core/Src/freertos.c:195:6:main_display_task	32	static
-../Core/Src/freertos.c:262:6:buttons_task	16	static
-../Core/Src/freertos.c:288:6:control_display	64	static
-../Core/Src/freertos.c:370:6:stagger_stop_buttons	16	static
-../Core/Src/freertos.c:382:6:initialise_main_display	16	static
-../Core/Src/freertos.c:425:9:simple_rand	4	static
+../Core/Src/freertos.c:119:6:MX_FREERTOS_Init	8	static
+../Core/Src/freertos.c:170:6:StartDefaultTask	16	static
+../Core/Src/freertos.c:190:6:main_display_task	32	static
+../Core/Src/freertos.c:276:6:buttons_task	16	static
+../Core/Src/freertos.c:343:6:control_display	64	static
+../Core/Src/freertos.c:425:6:write_stop_buttons	16	static
+../Core/Src/freertos.c:431:6:stagger_stop_buttons	16	static
+../Core/Src/freertos.c:443:6:initialise_main_display	16	static
+../Core/Src/freertos.c:484:9:simple_rand	4	static
