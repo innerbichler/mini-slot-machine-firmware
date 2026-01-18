@@ -512,7 +512,6 @@ void RA8876_draw_image_BTE(int16_t x, int16_t y, uint16_t width,
 	RA8876_write_register(0x90, 0x10);
 
 	RA8876_write_register(0x04, 0x00); 
-	HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
 
 	// we have to do sending manually because it would interpret sent
 	// commands as data, we just have to stream it
@@ -533,11 +532,9 @@ void RA8876_draw_image_BTE(int16_t x, int16_t y, uint16_t width,
 
 	}
 	HAL_GPIO_WritePin(display_CS_GPIO_Port, display_CS_Pin, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
 
 
 	while (RA8876_read_register(0x90) & 0x10) {
-		HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
 		osDelay(5);
 	}
 }
