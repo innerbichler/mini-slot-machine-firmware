@@ -41,6 +41,8 @@ static inline uint16_t to_rgb565(uint8_t r, uint8_t g, uint8_t b);
 uint8_t simple_rand(void);
 void stagger_stop_buttons(uint16_t);
 void initialise_main_display(void);
+uint8_t custom_parse_win_rate(const char *win_rate_str);
+void ui_draw_chance();
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -59,9 +61,16 @@ typedef enum {
 	SlotGameRoll2,
 	SlotGameRoll3,
 	SlotGameEvaluation,
+	SlotUIDrawChance,
+	SlotSetChance,
 
 } SlotGamestateEnum;
-SlotGamestateEnum GameState = SlotStartup;
+SlotGamestateEnum GameState = SlotLocked;
+uint8_t win_rate_percent = 10;
+// because the winrate needs to be global
+// and the menu dialog is controlled from a seperated task
+// the new_win_rate percent will also be global
+uint8_t new_win_rate_percent = 10;
 
 
 /* USER CODE END PM */
@@ -75,7 +84,7 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityBelowNormal,
 };
 /* Definitions for main_display */
 osThreadId_t main_displayHandle;
@@ -171,11 +180,39 @@ void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
-
-
+	// goal
+	char pressedKeys[20];
+	char pressedKey = ' ';
 	for (;;)
   {
-		osDelay(2500);
+		KeypadGetKey(&pressedKeys);
+		pressedKey = pressedKeys[0];
+		switch (GameState) {
+		case SlotIdle:
+			if (HAL_GPIO_ReadPin(stop_btn_0_GPIO_Port, stop_btn_0_Pin)) {
+				GameState = SlotGameStart;
+			}
+			// the control display is always in the menu dialog
+			
+			switch (pressedKey) {
+			case '3':
+				//elivate the control display
+				osThreadSetPriority(main_displayHandle, osPriorityLow);
+				osThreadSetPriority(controlDisplayHandle, osPriorityNormal);
+				GameState = SlotUIDrawChance;
+				break;
+			default:
+				break;
+			}
+			break;
+		case SlotSetChance:
+
+			break;
+		default:
+			osDelay(100);
+			break;
+		}
+		osDelay(50);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -260,7 +297,7 @@ void main_display_task(void *argument)
 			osDelay(500);
 			break;
 		}
-		osDelay(1000);
+		osDelay(150);
 
   }
   /* USER CODE END main_display_task */
@@ -284,10 +321,6 @@ void buttons_task(void *argument)
 		switch (GameState) {
 		case SlotIdle:
 			stagger_stop_buttons(75);
-
-			if (HAL_GPIO_ReadPin(stop_btn_0_GPIO_Port, stop_btn_0_Pin)) {
-				GameState = SlotGameStart;
-			}
 
 			break;
 		case SlotGameStart:
@@ -348,6 +381,9 @@ void control_display(void *argument)
 	char passwordAttempt[5] = { 0, 0, 0, 0, '\0' };
 	char hiddenDigits[5] = { 0, 0, 0, 0, '\0' };
 	uint8_t passwordIndex = 0;
+	char enter_win_percent[4] = { 0, 0, 0, '\0' };
+	uint8_t enter_win_percent_index = 0;
+	uint8_t temp_win_rate = 0;
 	LCD_Init();
 	LCD_PrintString("Starting Up");
 	MP3_init();
@@ -355,9 +391,9 @@ void control_display(void *argument)
 	char *password = "1230";
   for(;;)
   {
-		char pressedKeys[20];
-		KeypadGetKey(&pressedKeys);
-		pressedKey = pressedKeys[0];
+		char pressed_keys[20];
+		KeypadGetKey(&pressed_keys);
+		pressedKey = pressed_keys[0];
 		switch (GameState) {
 		case SlotLocked:
 			LCD_SetCursor(0, 0);
@@ -386,32 +422,82 @@ void control_display(void *argument)
 					GameState = SlotStartup;
 				}
 				passwordIndex = 0;
-			}
-			passwordIndex++;
-			// delay because of pressedKeys being full
 
+			} else {
+				passwordIndex++;
+			}
+			// delay for simple debouncing
 			osDelay(250);
 			break;
 		case SlotStartup:
 			// state for the intermediate directly after unlocking
 			// we lower the priority of this task
-			osThreadSetPriority(main_displayHandle, osPriorityNormal);
-			osThreadSetPriority(controlDisplayHandle, osPriorityLow);
-
 			LCD_Clear();
 			MP3_play_folder(1);
 			GameState = SlotIdle;
+			osThreadSetPriority(main_displayHandle, osPriorityNormal);
+			osThreadSetPriority(controlDisplayHandle, osPriorityLow);
+			break;
+		case SlotUIDrawChance:
+			ui_draw_chance();
+			GameState = SlotSetChance;
+			break;
+		case SlotSetChance:
+			// this is not optimal, but the menu wouldnt work otherwise
+			switch (pressedKey) {
+			case 'C':
+			case 'D':
+			case '*':
+			case '#':
+			case 0:
+				break;
+			case 'A':
+				// always go into idle after new percentage
+				win_rate_percent = new_win_rate_percent;
+				GameState = SlotIdle;
+				memset(enter_win_percent, 0, sizeof(enter_win_percent));
+				enter_win_percent_index = 0;
+
+				osThreadSetPriority(main_displayHandle, osPriorityNormal);
+				osThreadSetPriority(controlDisplayHandle, osPriorityLow);
+
+				break;
+			case 'B':
+				GameState = SlotIdle;
+				memset(enter_win_percent, 0, sizeof(enter_win_percent));
+				enter_win_percent_index = 0;
+
+				osThreadSetPriority(main_displayHandle, osPriorityNormal);
+				osThreadSetPriority(controlDisplayHandle, osPriorityLow);
+				break;
+			default:
+				enter_win_percent[enter_win_percent_index] = pressedKey;
+
+				LCD_SetCursor(9, 2);
+				LCD_PrintString(enter_win_percent);
+				if (enter_win_percent_index >= 2) {
+					enter_win_percent_index = 0;
+					temp_win_rate = custom_parse_win_rate(enter_win_percent);
+					if (temp_win_rate > 0) {
+						new_win_rate_percent = temp_win_rate;
+					}
+				} else {
+					enter_win_percent_index++;
+				}
+				osDelay(250);
+				break;
+			}
 			break;
 		default:
-			// the control display is always in the menu dialog
-			LCD_SetCursor(5, 0);
-			LCD_PrintString("1) Audio");
-			LCD_SetCursor(5, 1);
-			LCD_PrintString("2) Stats");
-			LCD_SetCursor(5, 2);
-			LCD_PrintString("3) Chance");
-			LCD_SetCursor(2, 3);
-			LCD_PrintString("Made by Alexander");
+
+			LCD_SetCursor(0, 0);
+			LCD_PrintString("     1) Audio       ");
+			LCD_SetCursor(0, 1);
+			LCD_PrintString("     2) Stats       ");
+			LCD_SetCursor(0, 2);
+			LCD_PrintString("     3) Chance      ");
+			LCD_SetCursor(0, 3);
+			LCD_PrintString("  Made by Alexander ");
 			break;
 		}
 		osDelay(250);
@@ -422,6 +508,38 @@ void control_display(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+uint8_t custom_parse_win_rate(const char *win_rate_str) {
+	int value = 0;
+	for (int i = 0; i < 3; i++) {
+		char c = win_rate_str[i];
+		if (c < '0' || c > '9') {
+			return 0;
+		}
+		int digit = c - '0';
+		value = (value * 10) + digit;
+	}
+	if (value > 100) {
+		value = 100;
+	}
+	else if (value == 0) {
+		value = 1;
+	}
+	return (value);
+}
+void ui_draw_chance() {
+	// set the win percentage 1-100
+	char win_rate_str[21];
+	snprintf(win_rate_str, sizeof(win_rate_str), "#    OLD %03d       #",
+			win_rate_percent);
+	LCD_SetCursor(0, 0);
+	LCD_PrintString("#-----Win Rate-----#");
+	LCD_SetCursor(0, 1);
+	LCD_PrintString(win_rate_str);
+	LCD_SetCursor(0, 2);
+	LCD_PrintString("#    NEW           #");
+	LCD_SetCursor(0, 3);
+	LCD_PrintString("#--A-OK------B-NO--#");
+}
 void write_stop_buttons(GPIO_PinState state) {
 	HAL_GPIO_WritePin(stop_led_0_GPIO_Port, stop_led_0_Pin, state);
 	HAL_GPIO_WritePin(stop_led_1_GPIO_Port, stop_led_1_Pin, state);
