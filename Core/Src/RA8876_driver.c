@@ -546,6 +546,16 @@ void RA8876_SLOT_clear() {
 	RA8876_draw_rectangle(0, 128, width, 600 - 128,
 			RA8876_BACKGROUND_PRIMARY_COLOR, 1);
 }
+void RA8876_SLOT_stop_roll(uint8_t number, uint8_t symbol) {
+	uint16_t width = (1024 / 3);
+	uint16_t shape_size = 200;
+	uint16_t x = ((width / 2) - (shape_size / 2) + (width * number) + 5);
+	uint16_t y = ((RA8876_HEIGHT / 2) - (shape_size / 2));
+	uint16_t colors[3] = { RA8876_FOREGROUND_PRIMARY_COLOR,
+	RA8876_FOREGROUND_SECONDARY_COLOR, RA8876_FOREGROUND_TERITARY_COLOR };
+	RA8876_SLOT_draw_symbol(x, y, shape_size, symbol, colors[_color],
+			1, 1);
+}
 
 uint8_t RA8876_SLOT_draw_roll(uint8_t number,
 		uint8_t filled) {

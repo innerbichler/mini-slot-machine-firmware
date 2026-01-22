@@ -54,7 +54,7 @@ void MP3_send_command(uint8_t command) {
 void MP3_init() {
 	MP3_send_command(MP3_COMMAND_RESET);
 	osDelay(2000);
-	MP3_send_command_with_param(MP3_COMMAND_SET_VOLUME, 10, 0x00);
+	MP3_send_command_with_param(MP3_COMMAND_SET_VOLUME, 15, 0x00);
 	osDelay(100);
 	MP3_set_playback_mode(0x00);
 	osDelay(100);

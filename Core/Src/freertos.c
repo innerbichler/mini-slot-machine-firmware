@@ -42,7 +42,11 @@ uint8_t simple_rand(void);
 void stagger_stop_buttons(uint16_t);
 void initialise_main_display(void);
 uint8_t custom_parse_win_rate(const char *win_rate_str);
-void ui_draw_chance();
+void ui_draw_win_rate();
+void ui_draw_stats();
+void slot_srand(uint32_t seed);
+uint32_t slot_rand(void);
+uint32_t get_random_number(uint32_t min_value, uint32_t max_value);
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -61,16 +65,25 @@ typedef enum {
 	SlotGameRoll2,
 	SlotGameRoll3,
 	SlotGameEvaluation,
-	SlotUIDrawChance,
+	SlotUIDrawWinRate,
 	SlotSetChance,
+	SlotUIDrawStats,
+	SlotWaitForOk,
 
 } SlotGamestateEnum;
 SlotGamestateEnum GameState = SlotLocked;
-uint8_t win_rate_percent = 10;
+uint8_t win_rate_percent = 20;
 // because the winrate needs to be global
 // and the menu dialog is controlled from a seperated task
 // the new_win_rate percent will also be global
 uint8_t new_win_rate_percent = 10;
+static uint32_t prng_state;
+
+struct SlotStats {
+	uint32_t session_total_games;
+	uint32_t session_won_games;
+};
+struct SlotStats slot_stats = { 0, 0 };
 
 
 /* USER CODE END PM */
@@ -195,18 +208,32 @@ void StartDefaultTask(void *argument)
 			// the control display is always in the menu dialog
 			
 			switch (pressedKey) {
+			case '2':
+				osThreadSetPriority(main_displayHandle, osPriorityLow);
+				osThreadSetPriority(controlDisplayHandle, osPriorityNormal);
+				GameState = SlotUIDrawStats;
+				break;
 			case '3':
 				//elivate the control display
 				osThreadSetPriority(main_displayHandle, osPriorityLow);
 				osThreadSetPriority(controlDisplayHandle, osPriorityNormal);
-				GameState = SlotUIDrawChance;
+				GameState = SlotUIDrawWinRate;
 				break;
 			default:
 				break;
 			}
 			break;
-		case SlotSetChance:
-
+			// for all control display pages, that are only info
+		case SlotWaitForOk:
+			switch (pressedKey) {
+			case 'A':
+				GameState = SlotIdle;
+				osThreadSetPriority(main_displayHandle, osPriorityNormal);
+				osThreadSetPriority(controlDisplayHandle, osPriorityLow);
+				break;
+			default:
+				break;
+			}
 			break;
 		default:
 			osDelay(100);
@@ -238,12 +265,17 @@ void main_display_task(void *argument)
 	uint8_t initialised = 0;
 	int ran_symbol = 1;
 	osDelay(10);
-	uint8_t current_symbol = 0;
 	uint8_t roll1_symbol = 0;
 	uint8_t roll2_symbol = 0;
 	uint8_t roll3_symbol = 0;
 
+	uint8_t will_win = 0;
+	uint8_t winning_symbol = 0;
+	uint8_t ACTIVE_SYMBOLS[5] = { DIAMOND, PACMAN, SNOWMAN, PRESENT, TREE };
 
+	// stop constantly redrawing winning symbols
+	uint8_t will_win_draw_helper = 0;
+	uint8_t random_number = 0;
   for(;;)
   {
 		switch (GameState) {
@@ -253,18 +285,19 @@ void main_display_task(void *argument)
 			display_wait_Pin) == GPIO_PIN_SET) {
 				initialise_main_display();
 				initialised = 1;
-
 			}
 
 			// only send something over SPI if wait is HIGH, wich means ready
 			if (initialised
 					&& HAL_GPIO_ReadPin(display_wait_GPIO_Port,
 							display_wait_Pin) == GPIO_PIN_SET) {
+				random_number = (uint8_t) get_random_number(0, 100);
+				will_win = random_number <= win_rate_percent;
+				random_number = (uint8_t) get_random_number(0,
+						sizeof(ACTIVE_SYMBOLS) - 1);
 
-				ran_symbol = !ran_symbol;
-				//RA8876_SLOT_draw_roll(0, ran_symbol);
-				//RA8876_SLOT_draw_roll(1, !ran_symbol);
-				//RA8876_SLOT_draw_roll(2, ran_symbol);
+				winning_symbol = ACTIVE_SYMBOLS[random_number];
+				
 
 			}
 			osDelay(500);
@@ -275,23 +308,50 @@ void main_display_task(void *argument)
 			break;
 		case SlotGameRoll2:
 			// first save the selected symbol of the roll before
+			if (will_win && will_win_draw_helper == 0) {
+			RA8876_SLOT_stop_roll(0, winning_symbol);
+				will_win_draw_helper++;
+			}
 			roll2_symbol = RA8876_SLOT_draw_roll(1, 1);
+
 			break;
 		case SlotGameRoll3:
 			// last roll
+			if (will_win && will_win_draw_helper == 1) {
+				RA8876_SLOT_stop_roll(1, winning_symbol);
+				will_win_draw_helper++;
+			}
 			roll3_symbol = RA8876_SLOT_draw_roll(2, 1);
 			break;
 		case SlotGameEvaluation:
-			if (roll3_symbol == roll2_symbol && roll3_symbol == roll1_symbol) {
+
+			if (will_win) {
+				RA8876_SLOT_stop_roll(2, winning_symbol);
+
 				// winner winner chicken dinner
 				MP3_play_sound_effect(4);
+				will_win_draw_helper = 0;
 				osDelay(7000);
+				RA8876_SLOT_clear();
+				GameState = SlotIdle;
+				slot_stats.session_won_games++;
 			} else {
-				//MP3_play_sound_effect(3);
-				osDelay(500);
+				// make sure the last roll is NOT correct
+				if (roll3_symbol == roll2_symbol
+						&& roll3_symbol == roll1_symbol) {
+					random_number = (uint8_t) get_random_number(0,
+							sizeof(ACTIVE_SYMBOLS) - 1);
+					roll3_symbol = ACTIVE_SYMBOLS[random_number];
+					RA8876_SLOT_stop_roll(2, roll3_symbol);
+
+				} else {
+					RA8876_SLOT_clear();
+					GameState = SlotIdle;
+				}
+				MP3_play_sound_effect(3);
 			}
-			RA8876_SLOT_clear();
-			GameState = SlotIdle;
+			slot_stats.session_total_games++;
+			osDelay(500);
 			break;
 		default:
 			osDelay(500);
@@ -377,15 +437,16 @@ void control_display(void *argument)
 {
   /* USER CODE BEGIN control_display */
   /* Infinite loop */
-	char pressedKey = ' ';
-	char passwordAttempt[5] = { 0, 0, 0, 0, '\0' };
-	char hiddenDigits[5] = { 0, 0, 0, 0, '\0' };
-	uint8_t passwordIndex = 0;
+	char pressed_key = ' ';
+	char password_attempt[5] = { 0, 0, 0, 0, '\0' };
+	char hidden_digits[5] = { 0, 0, 0, 0, '\0' };
+	uint8_t password_index = 0;
 	char enter_win_percent[4] = { 0, 0, 0, '\0' };
 	uint8_t enter_win_percent_index = 0;
 	uint8_t temp_win_rate = 0;
 	LCD_Init();
 	LCD_PrintString("Starting Up");
+	srand(HAL_GetTick());
 	MP3_init();
 	LCD_Clear();
 	char *password = "1230";
@@ -393,7 +454,7 @@ void control_display(void *argument)
   {
 		char pressed_keys[20];
 		KeypadGetKey(&pressed_keys);
-		pressedKey = pressed_keys[0];
+		pressed_key = pressed_keys[0];
 		switch (GameState) {
 		case SlotLocked:
 			LCD_SetCursor(0, 0);
@@ -407,24 +468,30 @@ void control_display(void *argument)
 			GameState = SlotEnterPassword;
 			break;
 		case SlotEnterPassword:
-			if (pressedKey == 0) {
+			if (pressed_key == 0) {
 				break;
 			}
-			passwordAttempt[passwordIndex] = pressedKey;
-			hiddenDigits[passwordIndex] = '*';
+			password_attempt[password_index] = pressed_key;
+			hidden_digits[password_index] = '*';
 			LCD_SetCursor(8, 1);
-			LCD_PrintString(hiddenDigits);
+			LCD_PrintString(hidden_digits);
 			LCD_SetCursor(8, 2);
-			LCD_PrintString(hiddenDigits);
+			LCD_PrintString(hidden_digits);
 
-			if (passwordIndex >= 3) {
-				if (strcmp(password, passwordAttempt) == 0) {
+			if (password_index >= 3) {
+				if (strcmp(password, password_attempt) == 0) {
 					GameState = SlotStartup;
 				}
-				passwordIndex = 0;
+				password_index = 0;
+				memset(password_attempt, 0, sizeof(password_attempt));
+				memset(hidden_digits, 0, sizeof(hidden_digits) - 1);
+				LCD_SetCursor(8, 1);
+				LCD_PrintString("    ");
+				LCD_SetCursor(8, 2);
+				LCD_PrintString("    ");
 
 			} else {
-				passwordIndex++;
+				password_index++;
 			}
 			// delay for simple debouncing
 			osDelay(250);
@@ -438,13 +505,17 @@ void control_display(void *argument)
 			osThreadSetPriority(main_displayHandle, osPriorityNormal);
 			osThreadSetPriority(controlDisplayHandle, osPriorityLow);
 			break;
-		case SlotUIDrawChance:
-			ui_draw_chance();
+		case SlotUIDrawStats:
+			ui_draw_stats();
+			GameState = SlotWaitForOk;
+			break;
+		case SlotUIDrawWinRate:
+			ui_draw_win_rate();
 			GameState = SlotSetChance;
 			break;
 		case SlotSetChance:
 			// this is not optimal, but the menu wouldnt work otherwise
-			switch (pressedKey) {
+			switch (pressed_key) {
 			case 'C':
 			case 'D':
 			case '*':
@@ -471,7 +542,7 @@ void control_display(void *argument)
 				osThreadSetPriority(controlDisplayHandle, osPriorityLow);
 				break;
 			default:
-				enter_win_percent[enter_win_percent_index] = pressedKey;
+				enter_win_percent[enter_win_percent_index] = pressed_key;
 
 				LCD_SetCursor(9, 2);
 				LCD_PrintString(enter_win_percent);
@@ -488,16 +559,18 @@ void control_display(void *argument)
 				break;
 			}
 			break;
-		default:
 
+		case SlotIdle:
 			LCD_SetCursor(0, 0);
-			LCD_PrintString("     1) Audio       ");
+			LCD_PrintString("     1) W.I.P       ");
 			LCD_SetCursor(0, 1);
 			LCD_PrintString("     2) Stats       ");
 			LCD_SetCursor(0, 2);
-			LCD_PrintString("     3) Chance      ");
+			LCD_PrintString("     3) Win rate    ");
 			LCD_SetCursor(0, 3);
 			LCD_PrintString("  Made by Alexander ");
+			break;
+		default:
 			break;
 		}
 		osDelay(250);
@@ -526,7 +599,30 @@ uint8_t custom_parse_win_rate(const char *win_rate_str) {
 	}
 	return (value);
 }
-void ui_draw_chance() {
+void ui_draw_stats() {
+	// display slot_stats and the actual win rate
+	char actual_win_rate_str[21];
+	char total_games_str[21];
+	uint8_t actual_win_rate_percent =
+			(uint8_t) (
+			((float) slot_stats.session_won_games
+					/ slot_stats.session_total_games) * 100);
+	snprintf(actual_win_rate_str, sizeof(actual_win_rate_str),
+			"#  win rate:    %02d #",
+			actual_win_rate_percent);
+	snprintf(total_games_str, sizeof(total_games_str),
+			"# total games: %03d #",
+			slot_stats.session_total_games);
+	LCD_SetCursor(0, 0);
+	LCD_PrintString("#------Stats.------#");
+	LCD_SetCursor(0, 1);
+	LCD_PrintString(actual_win_rate_str);
+	LCD_SetCursor(0, 2);
+	LCD_PrintString(total_games_str);
+	LCD_SetCursor(0, 3);
+	LCD_PrintString("#--A-OK------------#");
+}
+void ui_draw_win_rate() {
 	// set the win percentage 1-100
 	char win_rate_str[21];
 	snprintf(win_rate_str, sizeof(win_rate_str), "#    OLD %03d       #",
@@ -590,24 +686,22 @@ void initialise_main_display() {
 	RA8876_fill_bottom_gradient();
 	//RA8876_draw_tree(512, 300, 100);
 }
-
-static inline uint16_t to_rgb565(uint8_t r, uint8_t g, uint8_t b) {
-	// Force everything to uint16_t before shifting to prevent bit-loss
-	uint16_t rr = (uint16_t) (r & 0xF8) << 8;
-	uint16_t gg = (uint16_t) (g & 0xFC) << 3;
-	uint16_t bb = (uint16_t) (b >> 3);
-	return (rr | gg | bb);
+uint32_t slot_rand(void) {
+	prng_state = (1664525 * prng_state) + 1013904223;
+	return prng_state;
+}
+void slot_srand(uint32_t seed) {
+	if (seed == 0)
+		prng_state = 1;
+	else
+		prng_state = seed;
 }
 
-uint8_t simple_rand() {
-	static uint32_t x = 123456789; // Seed
-
-	// Tiny Xorshift algorithm (very fast, no HardFault)
-	x ^= x << 13;
-	x ^= x >> 17;
-	x ^= x << 5;
-
-	return (uint8_t) (x & 0x01); // Returns 0 or 1
+uint32_t get_random_number(uint32_t min_value, uint32_t max_value) {
+	// inclusive of max_value
+	uint32_t range = max_value - min_value + 1;
+	return (slot_rand() % range) + min_value;
 }
+
 /* USER CODE END Application */
 
