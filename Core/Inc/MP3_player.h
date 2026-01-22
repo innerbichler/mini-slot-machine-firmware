@@ -11,10 +11,11 @@
 
 void MP3_play_track(uint8_t number);
 void MP3_play_sound_effect(uint16_t sound_effect_number);
+void MP3_play_folder(uint8_t number);
 void MP3_send_command_with_param(uint8_t command, uint16_t parameter,
 		uint8_t ack_required);
-uint8_t MP3_query_volume();
-uint8_t MP3_get_volume_status_string(char *buffer);
+void MP3_set_volume(uint8_t volume);
+void MP3_set_playback_mode(uint8_t mode);
 void MP3_init(void);
 
 #define MP3_COMMAND_PLAY_TRACK  0x03

@@ -3,9 +3,8 @@
 ../Core/Src/MP3_player.c:40:6:MP3_send_command_with_param	1
 ../Core/Src/MP3_player.c:50:6:MP3_send_command	1
 ../Core/Src/MP3_player.c:54:6:MP3_init	1
-../Core/Src/MP3_player.c:62:9:MP3_query_volume	3
-../Core/Src/MP3_player.c:76:9:MP3_get_volume_status_string	2
-../Core/Src/MP3_player.c:85:6:MP3_set_playback_mode	1
-../Core/Src/MP3_player.c:89:6:MP3_play_track	1
-../Core/Src/MP3_player.c:92:6:MP3_play_folder	1
-../Core/Src/MP3_player.c:95:6:MP3_play_sound_effect	1
+../Core/Src/MP3_player.c:60:6:MP3_set_volume	2
+../Core/Src/MP3_player.c:68:6:MP3_set_playback_mode	1
+../Core/Src/MP3_player.c:72:6:MP3_play_track	1
+../Core/Src/MP3_player.c:75:6:MP3_play_folder	1
+../Core/Src/MP3_player.c:78:6:MP3_play_sound_effect	1

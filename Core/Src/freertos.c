@@ -42,11 +42,19 @@ uint8_t simple_rand(void);
 void stagger_stop_buttons(uint16_t);
 void initialise_main_display(void);
 uint8_t custom_parse_win_rate(const char *win_rate_str);
-void ui_draw_win_rate();
-void ui_draw_stats();
+void ui_draw_password(void);
+void ui_draw_menu(void);
+void ui_draw_win_rate(void);
+void ui_draw_stats(void);
+void ui_draw_audio(void);
+void ui_draw_lose_music(void);
+void ui_draw_volume(void);
+void ui_draw_startup_sequence(void);
 void slot_srand(uint32_t seed);
 uint32_t slot_rand(void);
 uint32_t get_random_number(uint32_t min_value, uint32_t max_value);
+void elevate_main_display_task(void);
+void elevate_control_task(void);
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -68,6 +76,8 @@ typedef enum {
 	SlotUIDrawWinRate,
 	SlotSetChance,
 	SlotUIDrawStats,
+	SlotUIDrawAudio,
+	SlotSetAudio,
 	SlotWaitForOk,
 
 } SlotGamestateEnum;
@@ -85,6 +95,11 @@ struct SlotStats {
 };
 struct SlotStats slot_stats = { 0, 0 };
 
+struct SlotAudioSettings {
+	uint8_t lose_music_on;
+	uint8_t volume;
+};
+struct SlotAudioSettings slot_audio_settings = { 1, 10 };
 
 /* USER CODE END PM */
 
@@ -194,29 +209,30 @@ void StartDefaultTask(void *argument)
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
 	// goal
-	char pressedKeys[20];
-	char pressedKey = ' ';
+	char pressed_keys[20];
+	char pressed_key = ' ';
 	for (;;)
   {
-		KeypadGetKey(&pressedKeys);
-		pressedKey = pressedKeys[0];
+		KeypadGetKey(&pressed_keys);
+		pressed_key = pressed_keys[0];
 		switch (GameState) {
 		case SlotIdle:
 			if (HAL_GPIO_ReadPin(stop_btn_0_GPIO_Port, stop_btn_0_Pin)) {
 				GameState = SlotGameStart;
 			}
-			// the control display is always in the menu dialog
-			
-			switch (pressedKey) {
+			// the control display is always in the menu dialog during IDLE
+			// we have to always elevate the prio of the control to make it snappy
+			switch (pressed_key) {
+			case '1':
+				elevate_control_task();
+				GameState = SlotUIDrawAudio;
+				break;
 			case '2':
-				osThreadSetPriority(main_displayHandle, osPriorityLow);
-				osThreadSetPriority(controlDisplayHandle, osPriorityNormal);
+				elevate_control_task();
 				GameState = SlotUIDrawStats;
 				break;
 			case '3':
-				//elivate the control display
-				osThreadSetPriority(main_displayHandle, osPriorityLow);
-				osThreadSetPriority(controlDisplayHandle, osPriorityNormal);
+				elevate_control_task();
 				GameState = SlotUIDrawWinRate;
 				break;
 			default:
@@ -225,11 +241,10 @@ void StartDefaultTask(void *argument)
 			break;
 			// for all control display pages, that are only info
 		case SlotWaitForOk:
-			switch (pressedKey) {
+			switch (pressed_key) {
 			case 'A':
 				GameState = SlotIdle;
-				osThreadSetPriority(main_displayHandle, osPriorityNormal);
-				osThreadSetPriority(controlDisplayHandle, osPriorityLow);
+				elevate_main_display_task();
 				break;
 			default:
 				break;
@@ -271,7 +286,8 @@ void main_display_task(void *argument)
 
 	uint8_t will_win = 0;
 	uint8_t winning_symbol = 0;
-	uint8_t ACTIVE_SYMBOLS[5] = { DIAMOND, PACMAN, SNOWMAN, PRESENT, TREE };
+	uint8_t ACTIVE_SYMBOLS[5] = { SNOWMAN, DIAMOND, PRESENT, TREE,
+			PACMAN };
 
 	// stop constantly redrawing winning symbols
 	uint8_t will_win_draw_helper = 0;
@@ -300,7 +316,7 @@ void main_display_task(void *argument)
 				
 
 			}
-			osDelay(500);
+			osDelay(100);
 			break;
 		case SlotGameStart:
 			// draw roll one until first button is pressed
@@ -348,7 +364,9 @@ void main_display_task(void *argument)
 					RA8876_SLOT_clear();
 					GameState = SlotIdle;
 				}
+				if (slot_audio_settings.lose_music_on) {
 				MP3_play_sound_effect(3);
+				}
 			}
 			slot_stats.session_total_games++;
 			osDelay(500);
@@ -445,9 +463,11 @@ void control_display(void *argument)
 	uint8_t enter_win_percent_index = 0;
 	uint8_t temp_win_rate = 0;
 	LCD_Init();
-	LCD_PrintString("Starting Up");
 	srand(HAL_GetTick());
+	ui_draw_startup_sequence();
 	MP3_init();
+	osDelay(1000);
+	MP3_set_volume(slot_audio_settings.volume);
 	LCD_Clear();
 	char *password = "1230";
   for(;;)
@@ -457,14 +477,7 @@ void control_display(void *argument)
 		pressed_key = pressed_keys[0];
 		switch (GameState) {
 		case SlotLocked:
-			LCD_SetCursor(0, 0);
-			LCD_PrintString("#-----Password-----#");
-			LCD_SetCursor(0, 1);
-			LCD_PrintString("#                  #");
-			LCD_SetCursor(0, 2);
-			LCD_PrintString("#                  #");
-			LCD_SetCursor(0, 3);
-			LCD_PrintString("#------------------#");
+			ui_draw_password();
 			GameState = SlotEnterPassword;
 			break;
 		case SlotEnterPassword:
@@ -502,8 +515,44 @@ void control_display(void *argument)
 			LCD_Clear();
 			MP3_play_folder(1);
 			GameState = SlotIdle;
-			osThreadSetPriority(main_displayHandle, osPriorityNormal);
-			osThreadSetPriority(controlDisplayHandle, osPriorityLow);
+			elevate_main_display_task();
+			break;
+		case SlotUIDrawAudio:
+			ui_draw_audio();
+			GameState = SlotSetAudio;
+			break;
+		case SlotSetAudio:
+			switch (pressed_key) {
+			case 'A':
+				GameState = SlotIdle;
+				elevate_main_display_task();
+				break;
+			case '1':
+				slot_audio_settings.lose_music_on =
+						!slot_audio_settings.lose_music_on;
+				ui_draw_lose_music();
+				break;
+			case '2':
+				if (slot_audio_settings.volume >= 30) {
+					slot_audio_settings.volume = 30;
+				} else {
+					slot_audio_settings.volume++;
+				}
+				MP3_set_volume(slot_audio_settings.volume);
+				ui_draw_volume();
+				break;
+			case '3':
+				if (slot_audio_settings.volume <= 0) {
+					slot_audio_settings.volume = 0;
+				} else {
+					slot_audio_settings.volume--;
+				}
+				MP3_set_volume(slot_audio_settings.volume);
+				ui_draw_volume();
+				break;
+			default:
+				break;
+			}
 			break;
 		case SlotUIDrawStats:
 			ui_draw_stats();
@@ -523,59 +572,55 @@ void control_display(void *argument)
 			case 0:
 				break;
 			case 'A':
-				// always go into idle after new percentage
+				// always go into idle after new percentage and reset everything
 				win_rate_percent = new_win_rate_percent;
 				GameState = SlotIdle;
 				memset(enter_win_percent, 0, sizeof(enter_win_percent));
 				enter_win_percent_index = 0;
-
-				osThreadSetPriority(main_displayHandle, osPriorityNormal);
-				osThreadSetPriority(controlDisplayHandle, osPriorityLow);
-
+				elevate_main_display_task();
 				break;
 			case 'B':
 				GameState = SlotIdle;
 				memset(enter_win_percent, 0, sizeof(enter_win_percent));
 				enter_win_percent_index = 0;
-
-				osThreadSetPriority(main_displayHandle, osPriorityNormal);
-				osThreadSetPriority(controlDisplayHandle, osPriorityLow);
+				elevate_main_display_task();
 				break;
 			default:
+				// overwrite the old numbers on screen
+				if (enter_win_percent_index + 1 >= 4) {
+					enter_win_percent_index = 0;
+					memset(enter_win_percent, 0, sizeof(enter_win_percent));
+					LCD_SetCursor(9, 2);
+					LCD_PrintString("   ");
+				}
 				enter_win_percent[enter_win_percent_index] = pressed_key;
 
 				LCD_SetCursor(9, 2);
 				LCD_PrintString(enter_win_percent);
-				if (enter_win_percent_index >= 2) {
-					enter_win_percent_index = 0;
+
+				if (enter_win_percent_index == 2) {
 					temp_win_rate = custom_parse_win_rate(enter_win_percent);
 					if (temp_win_rate > 0) {
 						new_win_rate_percent = temp_win_rate;
 					}
-				} else {
-					enter_win_percent_index++;
 				}
+				enter_win_percent_index++;
+				
 				osDelay(250);
 				break;
 			}
 			break;
 
 		case SlotIdle:
-			LCD_SetCursor(0, 0);
-			LCD_PrintString("     1) W.I.P       ");
-			LCD_SetCursor(0, 1);
-			LCD_PrintString("     2) Stats       ");
-			LCD_SetCursor(0, 2);
-			LCD_PrintString("     3) Win rate    ");
-			LCD_SetCursor(0, 3);
-			LCD_PrintString("  Made by Alexander ");
+			ui_draw_menu();
+			osDelay(250);
 			break;
 		default:
 			break;
 		}
 		osDelay(250);
 
-  }
+	}
   /* USER CODE END control_display */
 }
 
@@ -598,6 +643,69 @@ uint8_t custom_parse_win_rate(const char *win_rate_str) {
 		value = 1;
 	}
 	return (value);
+}
+void elevate_control_task() {
+	osThreadSetPriority(main_displayHandle, osPriorityLow);
+	osThreadSetPriority(controlDisplayHandle, osPriorityNormal);
+}
+void elevate_main_display_task() {
+	osThreadSetPriority(main_displayHandle, osPriorityNormal);
+	osThreadSetPriority(controlDisplayHandle, osPriorityLow);
+}
+void ui_draw_startup_sequence() {
+	LCD_SetCursor(0, 0);
+	LCD_PrintString(" OOO O    OOO  OOO  ");
+	LCD_SetCursor(0, 1);
+	LCD_PrintString(" OO  O   O   O  O   ");
+	LCD_SetCursor(0, 2);
+	LCD_PrintString("  OO O   O   O  O   ");
+	LCD_SetCursor(0, 3);
+	LCD_PrintString(" OOO OOO  OOO   O   ");
+}
+void ui_draw_password() {
+	LCD_SetCursor(0, 0);
+	LCD_PrintString("#-----Password-----#");
+	LCD_SetCursor(0, 1);
+	LCD_PrintString("#                  #");
+	LCD_SetCursor(0, 2);
+	LCD_PrintString("#                  #");
+	LCD_SetCursor(0, 3);
+	LCD_PrintString("#------------------#");
+}
+void ui_draw_menu() {
+	LCD_SetCursor(0, 0);
+	LCD_PrintString("     1) Audio       ");
+	LCD_SetCursor(0, 1);
+	LCD_PrintString("     2) Stats       ");
+	LCD_SetCursor(0, 2);
+	LCD_PrintString("     3) Win rate    ");
+	LCD_SetCursor(0, 3);
+	LCD_PrintString("  Made by Alexander ");
+}
+void ui_draw_audio() {
+	// control lose music and volume
+
+	LCD_SetCursor(0, 0);
+	LCD_PrintString("#-------Audio------#");
+	ui_draw_lose_music();
+	ui_draw_volume();
+	LCD_SetCursor(0, 3);
+	LCD_PrintString("#--A-OK------------#");
+}
+void ui_draw_volume() {
+	char volume_str[21];
+	snprintf(volume_str, sizeof(volume_str), "#+2 -3 volume:  %02d #",
+			slot_audio_settings.volume);
+	LCD_SetCursor(0, 2);
+	LCD_PrintString(volume_str);
+}
+void ui_draw_lose_music() {
+	LCD_SetCursor(0, 1);
+	if (slot_audio_settings.lose_music_on) {
+		LCD_PrintString("#1) lose tune: on  #");
+	} else {
+		LCD_PrintString("#1) lose tune: off #");
+	}
 }
 void ui_draw_stats() {
 	// display slot_stats and the actual win rate

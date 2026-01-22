@@ -54,33 +54,16 @@ void MP3_send_command(uint8_t command) {
 void MP3_init() {
 	MP3_send_command(MP3_COMMAND_RESET);
 	osDelay(2000);
-	MP3_send_command_with_param(MP3_COMMAND_SET_VOLUME, 15, 0x00);
-	osDelay(100);
 	MP3_set_playback_mode(0x00);
 	osDelay(100);
 }
-uint8_t MP3_query_volume() {
-
-	MP3_send_command_with_param(MP3_COMMAND_QUERY_VOLUME, 0x0000, 0x01);
-	HAL_StatusTypeDef status = HAL_UART_Receive(&huart6, MP3_receive_stack,
-			MP3_SEND_LENGTH, 50);
-
-    if (status == HAL_OK) {
-		if (MP3_receive_stack[MP3_stack_command] == MP3_COMMAND_QUERY_VOLUME) {
-			return MP3_receive_stack[MP3_stack_parameter_L];
-		}
+void MP3_set_volume(uint8_t volume) {
+	// mp3 max volume is 30 i think
+	if (volume > 30) {
+		volume = 30;
 	}
-	return 0xFF;
-}
-
-uint8_t MP3_get_volume_status_string(char *buffer) {
-	uint8_t volume = MP3_query_volume();
-	if (volume != 0xFF) {
-		snprintf(buffer, 15, "Volume: %u", volume);
-	} else {
-		snprintf(buffer, 15, "DFPlayer Error");
-	}
-	return volume;
+	MP3_send_command_with_param(MP3_COMMAND_SET_VOLUME, volume, 0x00);
+	osDelay(100);
 }
 void MP3_set_playback_mode(uint8_t mode) {
 	MP3_send_command_with_param(0x11, 0x01, 0x00);
